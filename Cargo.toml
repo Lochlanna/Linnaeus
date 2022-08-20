@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "linnaeus",
+    "linnaeus_request",
+    "linnaeus_ws",
+]
