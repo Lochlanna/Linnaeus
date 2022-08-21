@@ -1,5 +1,6 @@
 pub mod error;
 pub mod market;
+pub mod enums;
 
 use serde::{Serialize, Deserialize};
 use std::time::{SystemTime, UNIX_EPOCH};

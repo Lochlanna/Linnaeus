@@ -50,5 +50,17 @@ mod tests {
         };
 
         println!("system status:{}", serde_json::to_string(&resp).unwrap());
+
+        let ai = market::AssetInfo::new(crate::kraken::enums::Asset::BTC, None);
+        let resp = match ai.new_request(&mut a, &c).await {
+            Ok(r) => r,
+            Err(e) => {
+                println!("Error was {}", e);
+                return;
+            }
+        };
+
+        println!("BTC info is:{}", serde_json::to_string(&resp).unwrap());
+
     }
 }

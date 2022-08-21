@@ -2,8 +2,8 @@ use std::fmt::{Display, Formatter};
 use anyhow::bail;
 use std::str::FromStr;
 use strum::{EnumString, Display};
-use serde::Deserialize;
 use std::string::ToString;
+use serde::Deserialize;
 
 #[derive(Debug, EnumString, Deserialize, Display, Copy, Clone)]
 pub enum Severity {
