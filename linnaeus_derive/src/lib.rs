@@ -1,101 +1,122 @@
-use proc_macro::TokenStream;
+use std::process::id;
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::parse::Parser;
-use syn::{parse, parse_macro_input, ItemStruct, DeriveInput, Data, Fields};
+use syn::{parse, parse_macro_input, ItemStruct, DeriveInput, Data, Fields, AttributeArgs, NestedMeta, Meta, Lit, Error, Lit::Str, Lit::Bool};
 use syn::spanned::Spanned;
-use proc_macro2::{Ident, Span};
 use darling::FromDeriveInput;
+use http;
 
-
-#[derive(FromDeriveInput, Default)]
-#[darling(default, attributes(kraken_path))]
-struct Opts {
-    url: Option<String>,
-    auth: bool
-}
-
-fn get_fields_types(item:&DeriveInput) -> Result<(Vec<&syn::Ident>, Vec<&syn::Type> , &syn::Ident), TokenStream> {
-    let struct_name = &item.ident;
-
-    let struct_data = if let Data::Struct(struct_body) = &item.data {
-        struct_body
-    } else {
-        return Err(syn::Error::new(item.span() ,"kraken derive macro only works on structs").to_compile_error().into());
-    };
-
-    let fields = if let Fields::Named(named_fields) = &struct_data.fields {
-        named_fields
-    } else {
-        return Err(syn::Error::new(item.span(), "Named fields are missing").to_compile_error().into());
-    };
-    let mut fields_vec = Vec::new();
-    let mut fields_type_vec = Vec::new();
-    for field in &fields.named {
-        let mut skip = false;
-        for attr in &field.attrs {
-            if attr.path.is_ident("kraken_skip_field") {
-                skip = true;
-                break;
-            }
-        }
-        if skip {
-            continue;
-        }
-
-        fields_type_vec.push(&field.ty);
-        fields_vec.push(field.ident.as_ref().unwrap());
-    }
-    Ok((fields_vec, fields_type_vec, struct_name))
-}
-
-#[proc_macro_derive(Kraken, attributes(kraken_path, auth))]
-pub fn kraken_derrive(input: TokenStream) -> TokenStream {
-    // Parse the input tokens into a syntax tree
-    let input = parse_macro_input!(input as DeriveInput);
-
-    let opts = Opts::from_derive_input(&input).expect("Wrong options");
-
-    let (fields_vec, fields_type_vec, struct_name)  = match get_fields_types(&input) {
-        Ok(sd) => sd,
-        Err(err) => return err
-    };
-
-    let kraken_request = match opts.auth {
-        true => quote! {
-            impl crate::kraken::AuthenticatedKrakenRequest for #struct_name {}
-        },
-        false => quote! {
-            impl crate::kraken::PublicKrakenRequest for #struct_name {}
-        }
-    };
-
-    let path = match opts.url {
-        Some(x) => quote! {
-            impl crate::kraken::KrakenPath for #struct_name {
-                fn kraken_path() -> &'static str {
-                    #x
+// pub trait KrakenType {
+//     fn kraken_path() -> &'static str;
+//     fn http_type() -> http::Method;
+//     fn authenticated_request() -> bool;
+// }
+fn get_http_type(input: &NestedMeta) -> TokenStream {
+    let t = match input {
+        syn::NestedMeta::Meta(m) => {
+            match m.path().get_ident() {
+                Some(ident) => {
+                    //TODO can we actually validate it here?
+                    let ident_str = ident.to_string();
+                    let ident = Ident::new(ident_str.to_uppercase().as_str(), ident.span());
+                    quote! {
+                        fn http_type() -> http::Method {
+                            http::Method::#ident
+                        }
+                    }
                 }
-            }
-
-        },
-        None => quote! {},
-    };
-
-    // Build the output, possibly using quasi-quotation
-    let expanded = quote! {
-        impl crate::utils::ToBTree for #struct_name {
-            fn to_b_tree(&self) -> std::collections::BTreeMap<std::string::String, crate::utils::PrimitiveValue> {
-                let mut tree = std::collections::BTreeMap::new();
-                #(
-                    tree.insert(std::string::String::from(stringify!(#fields_vec)), crate::utils::PrimitiveValue::from(self.#fields_vec.clone()));
-                )*
-                tree
+                None => return Error::new(input.span(), "First argument on Kraken macro should be HTTP type").to_compile_error()
             }
         }
-        #path
-        #kraken_request
+        syn::NestedMeta::Lit(l) => return Error::new(input.span(), "First argument on Kraken macro should be HTTP type").to_compile_error()
+    };
+    t
+}
+
+fn get_path(input: &NestedMeta) -> TokenStream {
+    let t = match input {
+        syn::NestedMeta::Meta(m) => return Error::new(input.span(), "Second argument on Kraken macro should be the path").to_compile_error(),
+        syn::NestedMeta::Lit(l) => {
+            if let Str(lit_str) = l {
+                let url = lit_str.value();
+                quote! {
+                        fn kraken_path() -> &'static str {
+                            #url
+                        }
+                    }
+            } else {
+                return Error::new(input.span(), "Wrong type for path. Expecting string").to_compile_error()
+            }
+        }
+    };
+    t
+}
+
+fn process_auth(input: &NestedMeta) -> TokenStream {
+    match input {
+        syn::NestedMeta::Meta(m) => {
+            if m.path().is_ident("auth") || m.path().is_ident("authenticated") || m.path().is_ident("AUTH") || m.path().is_ident("AUTHENTICATED") {
+                return quote! {
+                        fn authenticated_request() -> bool {
+                            true
+                        }
+                    };
+            }
+        }
+        syn::NestedMeta::Lit(l) => {
+            if let Bool(lit_bool) = l {
+                let do_auth:bool = lit_bool.value();
+                if do_auth {
+                    return quote! {
+                        fn authenticated_request() -> bool {
+                            true
+                        }
+                    };
+                }
+                return quote! {
+                        fn authenticated_request() -> bool {
+                            false
+                        }
+                    };
+            } else {
+                return Error::new(input.span(), "Wrong type for path. Expecting string").to_compile_error()
+            }
+        }
+    }
+    Error::new(input.span(), "First argument on Kraken macro should be HTTP type").to_compile_error()
+}
+
+
+#[proc_macro_attribute]
+pub fn kraken(args: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(item as proc_macro2::TokenStream);
+    let args = parse_macro_input!(args as AttributeArgs);
+
+    if args.len() != 2 && args.len() != 3 {
+        return proc_macro::TokenStream::from(Error::new(input.span(), "Incorrect number of arguments. Expecting Kraken(HTTP_TYPE, URL, [auth])").to_compile_error())
+    }
+
+    let http_type = get_http_type(&args[0]);
+    let path = get_path(&args[1]);
+    let mut auth = quote! {
+                        fn authenticated_request() -> bool {
+                            false
+                        }
+                    };
+    if args.len() == 3 {
+        auth = process_auth(&args[2])
+    }
+
+    let x = quote! {
+        #input
+
+        impl crate::kraken::KrakenType for crate::kraken::market::Time {
+                #http_type
+                #path
+                #auth
+            }
     };
 
-    // Hand the output tokens back to the compiler
-    TokenStream::from(expanded)
+    proc_macro::TokenStream::from(x)
 }

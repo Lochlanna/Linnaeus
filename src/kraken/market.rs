@@ -1,9 +1,8 @@
 use crate::kraken::*;
-use linnaeus_derive::Kraken;
+use linnaeus_derive::kraken;
 
 
-#[derive(Debug, Serialize, Deserialize, Kraken)]
-#[kraken_path(url = "/0/public/Time")]
+#[kraken(POST,"/hello/world", AUTH)]
 pub struct Time {}
 
 #[derive(Debug, Deserialize)]

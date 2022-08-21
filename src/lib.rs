@@ -1,11 +1,8 @@
 pub mod kraken;
-pub mod utils;
 
 use std::collections::BTreeMap;
 use thiserror::Error;
-use linnaeus_derive::Kraken;
 use crate::kraken::error::KrakenError;
-use crate::utils::PrimitiveValue;
 
 
 #[derive(Error, Debug)]
@@ -27,8 +24,12 @@ struct Linnaeus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::kraken::market;
+    use crate::kraken::KrakenType;
     #[test]
     fn it_works() {
-
+        println!("{}", market::Time::kraken_path());
+        println!("{}", market::Time::http_type());
+        println!("{}", market::Time::authenticated_request());
     }
 }
