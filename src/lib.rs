@@ -1,6 +1,5 @@
 pub mod kraken;
 
-use std::collections::BTreeMap;
 use thiserror::Error;
 use crate::kraken::error::KrakenError;
 
@@ -8,7 +7,7 @@ use crate::kraken::error::KrakenError;
 #[derive(Error, Debug)]
 pub enum LinnaeusError {
     #[error("Error from Kraken")]
-    KrakenError(kraken::error::KrakenError)
+    KrakenError(KrakenError)
 }
 
 #[derive(Debug)]
@@ -23,13 +22,33 @@ struct Linnaeus {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use reqwest::Client;
     use crate::kraken::market;
-    use crate::kraken::KrakenType;
-    #[test]
-    fn it_works() {
-        println!("{}", market::Time::kraken_path());
-        println!("{}", market::Time::http_type());
-        println!("{}", market::Time::authenticated_request());
+    use crate::kraken::*;
+
+    #[tokio::test]
+    async fn it_works() {
+        let t = market::Time{};
+        let mut a = Auth::new("hello world");
+        let c = Client::new();
+        let resp = match t.new_request(&mut a, &c).await {
+            Ok(r) => r,
+            Err(e) => {
+                println!("Error was {}", e);
+                return;
+            }
+        };
+
+        println!("system time:{}", serde_json::to_string(&resp).unwrap());
+        let s = market::SystemStatus{};
+        let resp = match s.new_request(&mut a, &c).await {
+            Ok(r) => r,
+            Err(e) => {
+                println!("Error was {}", e);
+                return;
+            }
+        };
+
+        println!("system status:{}", serde_json::to_string(&resp).unwrap());
     }
 }

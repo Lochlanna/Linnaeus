@@ -11,11 +11,15 @@ use anyhow::bail;
 use sha2::{Sha256, Sha512, Digest};
 use hmac::{Hmac, Mac};
 use reqwest::Client;
+use serde::de::DeserializeOwned;
 use crate::KrakenError;
+use async_trait::async_trait;
+
+const KRAKEN_BASE_URL: &str = "https://api.kraken.com/0";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Auth {
-    apiKey: String,
+    api_key: String,
     last_nonce: Option<u128>,
     //TODO support OTP
 }
@@ -25,8 +29,8 @@ impl SerdeEncryptSharedKey for Auth {
 }
 
 impl Auth {
-    pub fn apiKey(&self) -> &str {
-        self.apiKey.as_str()
+    pub fn api_key(&self) -> &str {
+        self.api_key.as_str()
     }
     fn next_nonce(&mut self) -> u128 {
         match &mut self.last_nonce {
@@ -42,13 +46,13 @@ impl Auth {
     }
     pub fn new(apikey: &str) -> Self {
         Auth {
-            apiKey: apikey.to_string(),
+            api_key: apikey.to_string(),
             last_nonce:None,
         }
     }
     pub fn new_with_nonce(apikey: &str, nonce:u128) -> Self {
         Auth {
-            apiKey: apikey.to_string(),
+            api_key: apikey.to_string(),
             last_nonce:Some(nonce),
         }
     }
@@ -67,59 +71,71 @@ pub trait KrakenType {
 }
 
 #[derive(Debug, Serialize, Clone)]
-struct KrakenRequest<T: KrakenType + Serialize + Clone> {
+struct KrakenRequestContainer<'a, T: KrakenType + Serialize> {
     #[serde(flatten)]
-    inner: T,
+    inner: &'a T,
     #[serde(skip_serializing_if = "Option::is_none")]
     nonce: Option<u128>
 }
 
-impl<T: KrakenType + Serialize + Clone> KrakenRequest<T> {
-    fn new(inner: T, nonce: u128, auth: &mut Auth, client: &Client) -> anyhow::Result<reqwest::RequestBuilder> {
-        let path = T::kraken_path().to_string();
+#[derive(Debug, Deserialize)]
+pub struct KrakenResponseContainer<T> {
+    error: Vec<KrakenError>,
+    result: T
+}
 
-        let (mut data, nonce) = if T::authenticated_request() {
+#[async_trait]
+pub trait KrakenRequest {
+    type R: DeserializeOwned + Send;
+    async fn new_request(&self, auth: &mut Auth, client: &Client) -> Result<Self::R, anyhow::Error> where Self: KrakenType + Serialize + Send + Sized {
+        let path = KRAKEN_BASE_URL.to_string() + Self::kraken_path();
+        let (data, nonce) = if Self::authenticated_request() {
             let nonce = Some(auth.next_nonce());
-            let data = KrakenRequest::new_data(inner,nonce);
+            let data = KrakenRequestContainer::new(self, nonce);
             (data, nonce)
         } else {
-            (KrakenRequest::new_data(inner,None), None)
+            (KrakenRequestContainer::new(self, None), None)
         };
 
-        let mut req = client.post(&path).form(&data);
+        let mut req = client.request(Self::http_type(), &path).form(&data);
 
-        if T::authenticated_request() {
+        if Self::authenticated_request() {
             let nonce = match nonce {
                 None => bail!("Couldn't get nonce on authenticated request"),
                 Some(n) => n
             };
-            let decoded_secret = base64::decode(auth.apiKey.as_bytes())?;
+            let decoded_secret = base64::decode(auth.api_key.as_bytes())?;
 
             let mut sha = Sha256::new();
             sha.update(nonce.to_string());
-            sha.update(serde_urlencoded::to_string(data.clone())?.as_str());
+            sha.update(serde_urlencoded::to_string(data)?.as_str());
             let sha_sum = sha.finalize().as_slice().to_vec();
 
-            type HmacSha512 = Hmac<Sha512>;
-            let mut hmac = HmacSha512::new_from_slice(&decoded_secret)?;
+            let mut hmac = Hmac::<Sha512>::new_from_slice(&decoded_secret)?;
             hmac.update(path.as_bytes());
             hmac.update(&sha_sum);
             let mac_sum = hmac.finalize().into_bytes();
 
             let encoded = base64::encode(mac_sum);
 
-            req = req.header("API-Key", auth.apiKey()).header("API-Sign", encoded);
+            req = req.header("API-Key", auth.api_key()).header("API-Sign", encoded);
         }
 
-        Ok(req)
+        let resp: KrakenResponseContainer<Self::R> = req.send().await?.json().await?;
+
+        if resp.error.is_empty() {
+            Ok(resp.result)
+        } else {
+            //TODO it's possible that we could have more than one error here...
+            Err(anyhow::Error::new(resp.error[0].clone()))
+        }
     }
-    fn new_data(inner: T, nonce: Option<u128>) -> Self {
+}
+
+impl<'a, T: KrakenType + Serialize> KrakenRequestContainer<'a, T> {
+    fn new(inner: &'a T, nonce: Option<u128>) -> Self {
         Self { inner, nonce }
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub enum KrakenResponse<T> {
-    error(Vec<KrakenError>),
-    result(T)
-}
+

@@ -1,9 +1,11 @@
+use std::fmt::{Display, Formatter};
 use anyhow::bail;
 use std::str::FromStr;
-use strum::EnumString;
+use strum::{EnumString, Display};
 use serde::Deserialize;
+use std::string::ToString;
 
-#[derive(Debug, EnumString, Deserialize)]
+#[derive(Debug, EnumString, Deserialize, Display, Copy, Clone)]
 pub enum Severity {
     #[strum(serialize = "w", serialize = "W")]
     Warning,
@@ -11,7 +13,7 @@ pub enum Severity {
     Error
 }
 
-#[derive(Debug, EnumString, Deserialize)]
+#[derive(Debug, EnumString, Deserialize, Display, Copy, Clone)]
 pub enum Category {
     General,
     Auth,
@@ -24,7 +26,7 @@ pub enum Category {
 }
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct KrakenError {
     severity: Severity,
     category: Category,
@@ -32,6 +34,20 @@ pub struct KrakenError {
     additional: Option<String>
 }
 
+impl Display for KrakenError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let formatted: String = if let Some(additional) = &self.additional {
+            format!("{}{}:{}:{}", self.severity, self.category, self.message, additional)
+        } else {
+            format!("{}{}:{}", self.severity, self.category, self.message)
+        };
+        f.write_str(formatted.as_str())
+    }
+}
+
+impl std::error::Error for KrakenError {
+
+}
 
 impl FromStr for KrakenError {
     type Err = anyhow::Error;

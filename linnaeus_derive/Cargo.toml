@@ -9,8 +9,6 @@ edition = "2021"
 syn = "1.0"
 quote = "1.0"
 proc-macro2 = "1.0"
-darling = "0.14"
-http = "0.2"
 proc-macro-error = "1"
 
 [lib]
