@@ -1,6 +1,6 @@
 pub mod api;
 #[cfg(test)]
-mod tests;
+mod test_helpers;
 
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use reqwest::Client;

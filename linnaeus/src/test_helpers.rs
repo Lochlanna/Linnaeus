@@ -1,3 +1,5 @@
+// This module contain functions that are useful to setup the environment ready for testing
+
 use super::Linnaeus;
 use config::Config;
 use serde::Deserialize;
