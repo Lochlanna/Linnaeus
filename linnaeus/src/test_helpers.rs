@@ -16,7 +16,6 @@ pub struct AppConfig {
 
 impl AppConfig {
     pub fn load(filenames: &[(&str, bool)]) -> Self {
-        println!("{}", std::env::current_dir().unwrap().to_str().unwrap());
         let mut config = Config::builder()
             .add_source(config::Environment::with_prefix("COIN").try_parsing(true));
         for (file, required) in filenames {
