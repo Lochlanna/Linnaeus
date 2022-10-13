@@ -1,21 +1,18 @@
 pub mod error;
 
+use display_json::{DebugAsJson, DisplayAsJsonPretty};
+use error::KrakenErrors;
 use hmac::{Hmac, Mac};
 use log::trace;
 use reqwest::RequestBuilder;
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use strum::Display;
 
 #[inline(always)]
 fn nanos_to_seconds(nanos: i64) -> f64 {
     (nanos as f64) / 1e-9
-}
-
-pub enum Cursor {
-    Before { limit: u16 },
-    After { limit: u16 },
 }
 
 #[derive(Serialize)]
@@ -48,7 +45,7 @@ impl EndpointSecurityType {
 pub trait RequestClient {
     fn get_client(&self) -> &reqwest::Client;
     fn get_api_key(&self) -> &str;
-    fn get_api_secret(&self) -> &str;
+    fn get_api_private_key(&self) -> &str;
     fn get_passphrase(&self) -> &str;
     fn get_base_url(&self) -> &str;
 }
@@ -66,7 +63,7 @@ pub trait RequestHelpers: RequestClient {
             None => String::new(),
         };
         let message = format!("{}{}{}{}", timestamp, method, path, json_data);
-        let hmac_key = base64::decode(self.get_api_secret())?;
+        let hmac_key = base64::decode(self.get_api_private_key())?;
         let mut mac = match Hmac::<Sha256>::new_from_slice(&hmac_key) {
             Ok(mac) => mac,
             Err(_) => {
@@ -106,12 +103,14 @@ pub trait RequestHelpers: RequestClient {
         data: Option<&T>,
     ) -> Result<RequestBuilder, error::RequestError> {
         let url = self.get_base_url().to_string() + path;
-        let mut req = self.get_client().request(method.clone(), &url);
-
-        let timestamp = chrono::Utc::now();
-        let timestamp_seconds = nanos_to_seconds(timestamp.timestamp_nanos());
+        let mut req = self
+            .get_client()
+            .request(method.clone(), &url)
+            .header(http::header::USER_AGENT, "Linnaeus");
 
         if security_type.is_secure() {
+            let timestamp = chrono::Utc::now();
+            let timestamp_seconds = nanos_to_seconds(timestamp.timestamp_nanos());
             let signature = self.generate_signature(data, &method, &url, timestamp_seconds)?;
             req = req
                 .header("CB-ACCESS-KEY", self.get_api_key())
@@ -121,7 +120,7 @@ pub trait RequestHelpers: RequestClient {
         }
 
         if let Some(payload) = data {
-            req = req.json(payload)
+            req = req.form(payload)
         }
         trace!(
             "Generated request for {}: {:?} with security type {}",
@@ -133,39 +132,67 @@ pub trait RequestHelpers: RequestClient {
     }
 }
 
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
+struct Response<O> {
+    error: Vec<String>,
+    result: Option<O>,
+}
+
+impl<O> TryFrom<Response<O>> for error::KrakenErrors {
+    type Error = error::RequestError;
+
+    fn try_from(value: Response<O>) -> Result<Self, Self::Error> {
+        let mut errors:Vec<error::KrakenError> = Vec::with_capacity(value.error.len());
+        for err in value.error {
+            errors.push(err.as_str().try_into()?);
+        }
+        Ok(error::KrakenErrors {
+            errors,
+        })
+    }
+}
+
 async fn deserialize_response<O>(resp: reqwest::Response) -> Result<O, error::RequestError>
 where
     O: DeserializeOwned,
 {
     if resp.status().is_success() {
         let resp_body = resp.text().await?;
-        match serde_json::from_str(&resp_body) {
-            Ok(resp) => Ok(resp),
-            Err(err) => Err(error::RequestError::DeserializationError(
-                err,
-                "Failed to deserialize success body".to_string(),
-            )),
+        let resp: Response<O> = match serde_json::from_str(&resp_body) {
+            Ok(resp) => resp,
+            Err(err) => {
+                return Err(error::RequestError::DeserializationError(
+                    err,
+                    "Failed to deserialize success body".to_string(),
+                ))
+            }
+        };
+        match resp.result {
+            Some(result) => Ok(result),
+            None => {
+                let errors: KrakenErrors = resp.try_into()?;
+                Err(errors.into())
+            }
         }
     } else {
         let status_code = resp.status().as_u16();
         let resp_body = resp.text().await?;
-        let cb_error: Result<error::KrakenError, serde_json::Error> =
-            serde_json::from_str(&resp_body);
-        match cb_error {
-            Ok(mut cb_error) => {
-                cb_error.set_code(status_code);
-                Err(cb_error.into())
-            }
-            Err(err) => Err(error::RequestError::DeserializationError(
-                err,
-                "Failed to deserialize error body".to_string(),
-            )),
-        }
+        Err(error::RequestError::Other(format!(
+            "Got non 200 status code ({}) on request with body -> {}",
+            status_code, resp_body
+        )))
     }
 }
 
+#[inline]
+async fn execute_request<O>(linnaeus_client: &(impl RequestClient + RequestHelpers), req: RequestBuilder) -> Result<O, error::RequestError> where O: DeserializeOwned {
+    let req = req.build()?;
+    let resp = linnaeus_client.get_client().execute(req).await?;
+    deserialize_response(resp).await
+}
+
 pub async fn do_request<I, O>(
-    binance_client: &(impl RequestClient + RequestHelpers),
+    linnaeus_client: &(impl RequestClient + RequestHelpers),
     url: &str,
     method: http::Method,
     security_type: EndpointSecurityType,
@@ -175,13 +202,12 @@ where
     I: Serialize,
     O: DeserializeOwned,
 {
-    let req = binance_client.generate_req(url, method, security_type, input)?;
-    let resp = req.send().await?;
-    deserialize_response(resp).await
+    let req = linnaeus_client.generate_req(url, method, security_type, input)?;
+    execute_request(linnaeus_client, req).await
 }
 
 pub async fn do_request_no_params<O>(
-    binance_client: &(impl RequestClient + RequestHelpers),
+    linnaeus_client: &(impl RequestClient + RequestHelpers),
     url: &str,
     method: http::Method,
     security_type: EndpointSecurityType,
@@ -189,9 +215,8 @@ pub async fn do_request_no_params<O>(
 where
     O: DeserializeOwned,
 {
-    let req = binance_client.generate_req_no_payload(url, method, security_type)?;
-    let resp = req.send().await?;
-    deserialize_response(resp).await
+    let req = linnaeus_client.generate_req_no_payload(url, method, security_type)?;
+    execute_request(linnaeus_client, req).await
 }
 
 #[cfg(test)]
@@ -224,7 +249,7 @@ mod tests {
             "21b33a403f265ba5c8382b3a8bafd254" // Not a real API key
         }
 
-        fn get_api_secret(&self) -> &str {
+        fn get_api_private_key(&self) -> &str {
             "SbSF/fI5QLNBzl4tqgrFNmgolkgxixR0M1iw2XDWRtJV9lARYR5418hhvDEV3wwpmJ8zXNkok7oBHWjpasTXaA=="
             // Not a real secret
         }
@@ -297,7 +322,7 @@ mod tests {
         assert!(!res.headers().contains_key("CB-ACCESS-TIMESTAMP"));
         assert!(!res.headers().contains_key("CB-ACCESS-PASSPHRASE"));
 
-        verify_body(&res, "{\"a\":3,\"b\":\"hello\"}");
+        verify_body(&res, "a=3&b=hello");
 
         Ok(())
     }
@@ -360,7 +385,7 @@ mod tests {
             mock.get_passphrase()
         );
 
-        verify_body(&res, "{\"a\":3,\"b\":\"hello\"}");
+        verify_body(&res, "a=3&b=hello");
 
         Ok(())
     }
