@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use chrono::{FixedOffset, Utc};
 use derive_getters::Getters;
-use derive_new::new;
 use derive_setters::Setters;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use serde::{Deserialize, Serialize};
@@ -11,7 +10,8 @@ use strum::Display as EnumDisplay;
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct ServerTime {
-    unixtime: u64,
+    #[serde(rename = "unixtime")]
+    unix_time: u64,
     rfc1123: String,
 }
 

@@ -1,0 +1,2 @@
+base_url = "https://api.kraken.com/0"
+ws_url = "wss://ws-feed-public.sandbox.exchange.coinbase.com"
