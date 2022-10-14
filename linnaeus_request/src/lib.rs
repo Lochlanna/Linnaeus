@@ -163,7 +163,7 @@ struct Response<O> {
     result: Option<O>,
 }
 
-impl<O> TryFrom<Response<O>> for error::KrakenErrors {
+impl<O> TryFrom<Response<O>> for KrakenErrors {
     type Error = error::RequestError;
 
     fn try_from(value: Response<O>) -> Result<Self, Self::Error> {
@@ -171,7 +171,7 @@ impl<O> TryFrom<Response<O>> for error::KrakenErrors {
         for err in value.error {
             errors.push(err.as_str().try_into()?);
         }
-        Ok(error::KrakenErrors {
+        Ok(KrakenErrors {
             errors,
         })
     }
@@ -286,13 +286,13 @@ mod tests {
     use serde::Serialize;
 
     struct MockClient {
-        client: reqwest::Client,
+        client: Client,
     }
 
     impl MockClient {
         fn new() -> Self {
             Self {
-                client: reqwest::Client::new(),
+                client: Client::new(),
             }
         }
     }
@@ -311,12 +311,12 @@ mod tests {
             // Not a real secret
         }
 
-        fn get_base_url(&self) -> &str {
-            "https://base_url.com/"
-        }
-
         fn get_passphrase(&self) -> &str {
             "lbhoaxk52vp" // Not a real passphrase
+        }
+
+        fn get_base_url(&self) -> &str {
+            "https://base_url.com/"
         }
     }
 
@@ -432,7 +432,7 @@ mod tests {
         assert!(res.headers().get("CB-ACCESS-SIGN").is_some());
 
         let header_ts = get_time_stamp_from_headers(&res);
-        let diff = chrono::Utc::now() - header_ts;
+        let diff = Utc::now() - header_ts;
         assert!(diff < chrono::Duration::seconds(1));
 
         assert_eq!(
