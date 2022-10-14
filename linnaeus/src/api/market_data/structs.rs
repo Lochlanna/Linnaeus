@@ -4,6 +4,7 @@ use chrono::{FixedOffset, Utc};
 use derive_getters::Getters;
 use derive_setters::Setters;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display as EnumDisplay;
@@ -74,3 +75,82 @@ pub struct Asset {
 }
 
 pub type AssetInfo = HashMap<String, Asset>;
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[serde(rename_all = "snake_case")]
+pub enum TradableAssetPairDetailLevel {
+    Info, //All info
+    Leverage, //Leverage info
+    Fees, //Fees schedule
+    Margin //Margin info
+}
+
+impl Default for TradableAssetPairDetailLevel {
+    fn default() -> Self {
+        Self::Info
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default)]
+pub struct TradableAssetPairsParams {
+    #[serde(serialize_with = "crate::api::concat_strings_serializer")]
+    #[serde(rename = "pair")]
+    pairs: Vec<String>,
+    #[serde(rename = "info")]
+    detail_level: TradableAssetPairDetailLevel
+}
+
+impl TradableAssetPairsParams {
+    pub fn new(pairs: Vec<String>, detail_level: TradableAssetPairDetailLevel) -> Self {
+        Self {
+            pairs,
+            detail_level
+        }
+    }
+    pub fn add_pair(&mut self, pair: String) {
+        self.pairs.push(pair)
+    }
+    pub fn add_pairs(&mut self, mut pairs: Vec<String>) {
+        self.pairs.append(&mut pairs);
+    }
+}
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct Fee {
+    volume: Decimal,
+    percent_fee: Decimal
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct TradingAssetPair {
+    #[serde(rename = "altname")]
+    alt_name: String,
+    #[serde(rename = "wsname")]
+    websocket_name: Option<String>,
+    #[serde(rename = "aclass_base")]
+    base_asset_class: String, // TODO enum?
+    #[serde(rename = "base")]
+    base_asset_id: String,
+    #[serde(rename = "aclass_quote")]
+    quote_asset_class: String,
+    #[serde(rename = "quote")]
+    quote_asset_id: String,
+    lot: Option<String>, // Deprecated but optional in case!
+    pair_decimals: i32,
+    cost_decimals: i32,
+    lot_decimals: i32,
+    lot_multiplier: i32,
+    leverage_buy: Vec<i32>,
+    leverage_sell: Vec<i32>,
+    fees: Vec<Fee>,
+    fees_maker: Vec<Fee>,
+    fee_volume_currency: String,
+    margin_call: i32,
+    margin_stop: i32,
+    #[serde(rename = "ordermin")]
+    order_min: Decimal
+}
+
+pub type TradingAssetPairs = HashMap<String, TradingAssetPair>;

@@ -82,25 +82,47 @@ pub trait RequestHelpers: RequestClient {
         method: http::Method,
         security_type: EndpointSecurityType,
     ) -> Result<RequestBuilder, error::RequestError> {
-        self.internal_generate_req::<Empty>(path, method, security_type, None)
+        self.internal_generate_req::<Empty, Empty>(path, method, security_type, None, None)
     }
 
-    fn generate_req<T: Serialize>(
+    fn generate_req_with_body<T: Serialize>(
         &self,
         path: &str,
         method: http::Method,
         security_type: EndpointSecurityType,
-        data: &T,
+        body: &T,
     ) -> Result<RequestBuilder, error::RequestError> {
-        self.internal_generate_req(path, method, security_type, Some(data))
+        self.internal_generate_req::<T, Empty>(path, method, security_type, Some(body), None)
     }
 
-    fn internal_generate_req<T: Serialize>(
+    fn generate_req<T: Serialize, Q: Serialize>(
+        &self,
+        path: &str,
+        method: http::Method,
+        security_type: EndpointSecurityType,
+        body: &T,
+        query: &Q
+    ) -> Result<RequestBuilder, error::RequestError> {
+        self.internal_generate_req(path, method, security_type, Some(body), Some(query))
+    }
+
+    fn generate_req_with_query<Q: Serialize>(
+        &self,
+        path: &str,
+        method: http::Method,
+        security_type: EndpointSecurityType,
+        query: &Q
+    ) -> Result<RequestBuilder, error::RequestError> {
+        self.internal_generate_req::<Empty, Q>(path, method, security_type, None, Some(query))
+    }
+
+    fn internal_generate_req<T: Serialize, Q: Serialize>(
         &self,
         path: &str,
         method: http::Method,
         security_type: EndpointSecurityType,
         data: Option<&T>,
+        query: Option<&Q>,
     ) -> Result<RequestBuilder, error::RequestError> {
         let url = self.get_base_url().to_string() + path;
         let mut req = self
@@ -119,6 +141,9 @@ pub trait RequestHelpers: RequestClient {
                 .header("CB-ACCESS-PASSPHRASE", self.get_passphrase());
         }
 
+        if let Some(query) = query {
+            req = req.query(query)
+        }
         if let Some(payload) = data {
             req = req.form(payload)
         }
@@ -191,18 +216,50 @@ async fn execute_request<O>(linnaeus_client: &(impl RequestClient + RequestHelpe
     deserialize_response(resp).await
 }
 
-pub async fn do_request<I, O>(
+pub async fn do_request_with_body<I, O>(
     linnaeus_client: &(impl RequestClient + RequestHelpers),
     url: &str,
     method: http::Method,
     security_type: EndpointSecurityType,
-    input: &I,
+    body: &I,
 ) -> Result<O, error::RequestError>
 where
     I: Serialize,
     O: DeserializeOwned,
 {
-    let req = linnaeus_client.generate_req(url, method, security_type, input)?;
+    let req = linnaeus_client.generate_req_with_body(url, method, security_type, body)?;
+    execute_request(linnaeus_client, req).await
+}
+
+pub async fn do_request_with_query<Q, O>(
+    linnaeus_client: &(impl RequestClient + RequestHelpers),
+    url: &str,
+    method: http::Method,
+    security_type: EndpointSecurityType,
+    query: &Q,
+) -> Result<O, error::RequestError>
+    where
+        Q: Serialize,
+        O: DeserializeOwned,
+{
+    let req = linnaeus_client.generate_req_with_query(url, method, security_type, query)?;
+    execute_request(linnaeus_client, req).await
+}
+
+pub async fn do_request<I, Q, O>(
+    linnaeus_client: &(impl RequestClient + RequestHelpers),
+    url: &str,
+    method: http::Method,
+    security_type: EndpointSecurityType,
+    body: &I,
+    query: &Q
+) -> Result<O, error::RequestError>
+    where
+        I: Serialize,
+        Q: Serialize,
+        O: DeserializeOwned,
+{
+    let req = linnaeus_client.generate_req(url, method, security_type, body, query)?;
     execute_request(linnaeus_client, req).await
 }
 
@@ -309,7 +366,7 @@ mod tests {
             b: "hello".to_string(),
         };
         let res = mock
-            .generate_req(
+            .generate_req_with_body(
                 "somepath",
                 http::Method::GET,
                 EndpointSecurityType::None,
@@ -353,7 +410,7 @@ mod tests {
             b: "hello".to_string(),
         };
         let res = mock
-            .generate_req(
+            .generate_req_with_body(
                 "somepath",
                 http::Method::GET,
                 EndpointSecurityType::Private,
