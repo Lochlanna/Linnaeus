@@ -188,7 +188,7 @@ where
             Err(err) => {
                 return Err(error::RequestError::DeserializationError(
                     err,
-                    "Failed to deserialize success body".to_string(),
+                    resp_body,
                 ))
             }
         };

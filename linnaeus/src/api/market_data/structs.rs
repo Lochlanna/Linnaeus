@@ -8,6 +8,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display as EnumDisplay;
+use derive_new::new;
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct ServerTime {
@@ -154,3 +155,59 @@ pub struct TradingAssetPair {
 }
 
 pub type TradingAssetPairs = HashMap<String, TradingAssetPair>;
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new)]
+pub struct TickerInfoParams {
+    pair: String
+}
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct Ask {
+    price: Decimal,
+    whole_lot_volume: Decimal,
+    lot_volume: Decimal,
+}
+
+pub type Bid = Ask;
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct LastTradeClosed {
+    price: Decimal,
+    lot_volume: Decimal,
+}
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct Volume {
+    today: Decimal,
+    last_24h: Decimal,
+}
+
+pub type NumberOfTrades = Volume;
+pub type Low = Volume;
+pub type High = Volume;
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct TickerInformation {
+    #[serde(rename = "a")]
+    ask: Ask,
+    #[serde(rename = "b")]
+    bid: Bid,
+    #[serde(rename = "c")]
+    last_trade_closed: LastTradeClosed,
+    #[serde(rename = "v")]
+    volume: Volume,
+    #[serde(rename = "p")]
+    volume_weighted_average_price: Volume,
+    #[serde(rename = "t")]
+    number_of_trades: NumberOfTrades,
+    #[serde(rename = "l")]
+    low: Low,
+    #[serde(rename = "h")]
+    high: High,
+    #[serde(rename = "o")]
+    open: Decimal
+}
+
+pub type MultiTickerInformation = HashMap<String, TickerInformation>;

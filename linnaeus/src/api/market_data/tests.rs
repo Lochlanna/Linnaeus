@@ -59,3 +59,14 @@ async fn test_all_trading_asset_pairs() -> Result<()> {
     info!("tradable asset pair info is {:?}", tap);
     Ok(())
 }
+
+
+#[tokio::test]
+async fn test_ticker_info() -> Result<()> {
+    let bin = setup();
+    let params = TickerInfoParams::new("XBTUSD".to_string());
+    let ticker_info = ticker_information(&bin, &params).await?;
+    info!("ticker info for XBTUSD is {:?}", ticker_info);
+    assert_eq!(ticker_info.len(), 1);
+    Ok(())
+}

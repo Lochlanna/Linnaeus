@@ -82,3 +82,17 @@ pub async fn all_tradable_asset_pairs(
     )
         .await
 }
+
+pub async fn ticker_information(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &TickerInfoParams
+) -> Result<MultiTickerInformation, error::RequestError> {
+    do_request_with_query(
+        client,
+        "/public/Ticker",
+        http::Method::GET,
+        EndpointSecurityType::None,
+        params
+    )
+        .await
+}
