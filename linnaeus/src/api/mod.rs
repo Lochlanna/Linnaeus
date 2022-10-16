@@ -10,11 +10,6 @@ use chrono::Utc;
 use rust_decimal::Decimal;
 use serde::de::Error;
 
-pub fn concat_strings_serializer<S>(i: &[String],serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-    let out = i.join(",");
-    serializer.serialize_str(&out)
-}
-
 
 pub fn datetime_from_timestamp_deserializer<'de, D>(deserialize: D) -> Result<DateTime<Utc>, D::Error> where D: serde::Deserializer<'de> {
     let timestamp= serde::Deserialize::deserialize(deserialize)?;

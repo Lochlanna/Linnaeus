@@ -7,9 +7,10 @@ use derive_setters::Setters;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
+use serde_with::{skip_serializing_none, serde_as, StringWithSeparator};
 use strum::Display as EnumDisplay;
 use derive_new::new;
+use serde_with::formats::{CommaSeparator, SpaceSeparator};
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct ServerTime {
@@ -43,10 +44,11 @@ pub struct SystemStatus {
     timestamp: chrono::DateTime<Utc>,
 }
 
+#[serde_as]
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters)]
 pub struct AssetInfoParams {
-    #[serde(serialize_with = "crate::api::concat_strings_serializer")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
     asset: Vec<String>,
     aclass: Option<String>,
 }
@@ -93,10 +95,11 @@ impl Default for TradableAssetPairDetailLevel {
     }
 }
 
+#[serde_as]
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default)]
 pub struct TradableAssetPairsParams {
-    #[serde(serialize_with = "crate::api::concat_strings_serializer")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
     #[serde(rename = "pair")]
     pairs: Vec<String>,
     #[serde(rename = "info")]
