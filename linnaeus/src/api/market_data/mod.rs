@@ -111,6 +111,20 @@ pub async fn ohlc(
         .await
 }
 
+pub async fn order_book(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &OrderBookParams
+) -> Result<OrderBooks, error::RequestError> {
+    do_request_with_query(
+        client,
+        "/public/Depth",
+        http::Method::GET,
+        EndpointSecurityType::None,
+        params
+    )
+        .await
+}
+
 pub async fn recent_trades(
     client: &(impl RequestClient + RequestHelpers),
     params: &RecentTradesParams

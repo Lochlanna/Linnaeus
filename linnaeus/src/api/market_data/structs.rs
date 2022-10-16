@@ -297,6 +297,50 @@ pub struct OHLCData {
 }
 
 #[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty)]
+pub struct OrderBookParams {
+    pair: String,
+    count: u16
+}
+
+impl OrderBookParams {
+    pub fn new(pair: String) -> Self {
+        Self {
+            pair,
+            count: 100
+        }
+    }
+
+    pub fn new_with_count(pair: String, count: u16) -> Self {
+        Self {
+            pair,
+            count
+        }
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct OrderBookAsk {
+    price: Decimal,
+    volume: Decimal,
+    #[serde(deserialize_with = "crate::api::datetime_from_timestamp_deserializer")]
+    timestamp: chrono::DateTime<Utc>
+}
+
+pub type OrderBookBid = OrderBookAsk;
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct OrderBook {
+    asks: Vec<OrderBookAsk>,
+    bids: Vec<OrderBookBid>
+}
+
+pub type OrderBooks = HashMap<String, OrderBook>;
+
+
+#[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
 pub struct RecentTradesParams {
     pair: String,

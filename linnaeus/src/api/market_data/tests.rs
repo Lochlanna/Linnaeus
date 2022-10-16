@@ -85,6 +85,16 @@ async fn test_ohlc() -> Result<()> {
 }
 
 #[tokio::test]
+async fn test_order_book() -> Result<()> {
+    let bin = setup();
+    let params = OrderBookParams::new("XBTUSD".to_string());
+    let recent_trades = order_book(&bin, &params).await?;
+    info!("order book for XBTUSD is {:?}", recent_trades);
+    assert_eq!(recent_trades.len(), 1);
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_recent_trades() -> Result<()> {
     let bin = setup();
     let since = Utc::now().sub(chrono::Duration::minutes(2));
