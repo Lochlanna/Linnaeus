@@ -7,10 +7,10 @@ use derive_setters::Setters;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_with::{skip_serializing_none, serde_as, StringWithSeparator};
+use serde_with::{skip_serializing_none, serde_as, StringWithSeparator, TimestampSeconds, TimestampSecondsWithFrac, DisplayFromStr};
 use strum::Display as EnumDisplay;
 use derive_new::new;
-use serde_with::formats::{CommaSeparator, SpaceSeparator};
+use serde_with::formats::{CommaSeparator};
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct ServerTime {
@@ -277,10 +277,11 @@ impl OHLCDataParams {
     }
 }
 
+#[serde_as]
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct TickData {
-    #[serde(deserialize_with = "crate::api::datetime_from_timestamp_deserializer")]
+    #[serde_as(as = "TimestampSeconds<i64>")]
     time: chrono::DateTime<Utc>,
     open: Decimal,
     high: Decimal,
@@ -322,12 +323,13 @@ impl OrderBookParams {
     }
 }
 
+#[serde_as]
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct OrderBookAsk {
     price: Decimal,
     volume: Decimal,
-    #[serde(deserialize_with = "crate::api::datetime_from_timestamp_deserializer")]
+    #[serde_as(as = "TimestampSeconds<i64>")]
     timestamp: chrono::DateTime<Utc>
 }
 
@@ -380,12 +382,13 @@ pub enum TradeType {
     Limit
 }
 
+#[serde_as]
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct TradeData {
     price: Decimal,
     volume: Decimal,
-    #[serde(deserialize_with = "crate::api::datetime_from_float_timestamp_deserializer")]
+    #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
     time: chrono::DateTime<Utc>,
     side: Side,
     trade_type: TradeType,
@@ -393,10 +396,11 @@ pub struct TradeData {
 }
 
 
+#[serde_as]
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct RecentTrades {
-    #[serde(deserialize_with = "crate::api::u128_from_string")]
+    #[serde_as(as = "DisplayFromStr")]
     last: u128,
     #[serde(flatten)]
     trade_data: HashMap<String, Vec<TradeData>>
