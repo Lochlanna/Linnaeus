@@ -83,10 +83,14 @@ pub type AssetInfo = HashMap<String, Asset>;
 #[derive(Debug, Serialize, Deserialize, EnumDisplay)]
 #[serde(rename_all = "snake_case")]
 pub enum TradableAssetPairDetailLevel {
-    Info, //All info
-    Leverage, //Leverage info
-    Fees, //Fees schedule
-    Margin //Margin info
+    //All info
+    Info,
+    //Leverage info
+    Leverage,
+    //Fees schedule
+    Fees,
+    //Margin info
+    Margin,
 }
 
 impl Default for TradableAssetPairDetailLevel {
@@ -103,14 +107,14 @@ pub struct TradableAssetPairsParams {
     #[serde(rename = "pair")]
     pairs: Vec<String>,
     #[serde(rename = "info")]
-    detail_level: TradableAssetPairDetailLevel
+    detail_level: TradableAssetPairDetailLevel,
 }
 
 impl TradableAssetPairsParams {
     pub fn new(pairs: Vec<String>, detail_level: TradableAssetPairDetailLevel) -> Self {
         Self {
             pairs,
-            detail_level
+            detail_level,
         }
     }
     pub fn add_pair(&mut self, pair: String) {
@@ -124,7 +128,7 @@ impl TradableAssetPairsParams {
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct Fee {
     volume: Decimal,
-    percent_fee: Decimal
+    percent_fee: Decimal,
 }
 
 #[skip_serializing_none]
@@ -135,14 +139,16 @@ pub struct TradingAssetPair {
     #[serde(rename = "wsname")]
     websocket_name: Option<String>,
     #[serde(rename = "aclass_base")]
-    base_asset_class: String, // TODO enum?
+    base_asset_class: String,
+    // TODO enum?
     #[serde(rename = "base")]
     base_asset_id: String,
     #[serde(rename = "aclass_quote")]
     quote_asset_class: String,
     #[serde(rename = "quote")]
     quote_asset_id: String,
-    lot: Option<String>, // Deprecated but optional in case!
+    lot: Option<String>,
+    // Deprecated but optional in case!
     pair_decimals: i32,
     cost_decimals: i32,
     lot_decimals: i32,
@@ -155,7 +161,7 @@ pub struct TradingAssetPair {
     margin_call: i32,
     margin_stop: i32,
     #[serde(rename = "ordermin")]
-    order_min: Decimal
+    order_min: Decimal,
 }
 
 pub type TradingAssetPairs = HashMap<String, TradingAssetPair>;
@@ -163,7 +169,7 @@ pub type TradingAssetPairs = HashMap<String, TradingAssetPair>;
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new)]
 pub struct TickerInfoParams {
-    pair: String
+    pair: String,
 }
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
@@ -211,7 +217,7 @@ pub struct TickerInformation {
     #[serde(rename = "h")]
     high: High,
     #[serde(rename = "o")]
-    open: Decimal
+    open: Decimal,
 }
 
 pub type MultiTickerInformation = HashMap<String, TickerInformation>;
@@ -235,21 +241,21 @@ pub enum Interval {
     #[serde(rename = "10080")]
     OneWeek,
     #[serde(rename = "21600")]
-    FifteenDay
+    FifteenDay,
 }
 
 impl From<Interval> for Duration {
     fn from(i: Interval) -> Self {
         match i {
             Interval::OneMin => Duration::from_secs(60),
-            Interval::FiveMin => Duration::from_secs(5*60),
-            Interval::FifteenMin => Duration::from_secs(15*60),
-            Interval::ThirtyMin => Duration::from_secs(30*60),
-            Interval::OneHour => Duration::from_secs(60*60),
-            Interval::FourHour => Duration::from_secs(240*60),
-            Interval::OneDay => Duration::from_secs(1440*60),
-            Interval::OneWeek => Duration::from_secs(10080*60),
-            Interval::FifteenDay => Duration::from_secs(21600*60),
+            Interval::FiveMin => Duration::from_secs(5 * 60),
+            Interval::FifteenMin => Duration::from_secs(15 * 60),
+            Interval::ThirtyMin => Duration::from_secs(30 * 60),
+            Interval::OneHour => Duration::from_secs(60 * 60),
+            Interval::FourHour => Duration::from_secs(240 * 60),
+            Interval::OneDay => Duration::from_secs(1440 * 60),
+            Interval::OneWeek => Duration::from_secs(10080 * 60),
+            Interval::FifteenDay => Duration::from_secs(21600 * 60),
         }
     }
 }
@@ -259,7 +265,7 @@ impl From<Interval> for Duration {
 pub struct OHLCDataParams {
     pair: String,
     interval: Option<Interval>,
-    since: Option<u64>
+    since: Option<u64>,
 }
 
 impl OHLCDataParams {
@@ -270,7 +276,7 @@ impl OHLCDataParams {
                 Self {
                     pair,
                     interval,
-                    since: Some(since.timestamp() as u64)
+                    since: Some(since.timestamp() as u64),
                 }
             }
         }
@@ -289,7 +295,7 @@ pub struct TickData {
     close: Decimal,
     volume_weighted_average_price: Decimal,
     volume: Decimal,
-    count: i64
+    count: i64,
 }
 
 #[skip_serializing_none]
@@ -297,28 +303,28 @@ pub struct TickData {
 pub struct OHLCData {
     last: i64,
     #[serde(flatten)]
-    tick_data: HashMap<String, Vec<TickData>>
+    tick_data: HashMap<String, Vec<TickData>>,
 }
 
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty)]
 pub struct OrderBookParams {
     pair: String,
-    count: u16
+    count: u16,
 }
 
 impl OrderBookParams {
     pub fn new(pair: String) -> Self {
         Self {
             pair,
-            count: 100
+            count: 100,
         }
     }
 
     pub fn new_with_count(pair: String, count: u16) -> Self {
         Self {
             pair,
-            count
+            count,
         }
     }
 }
@@ -330,7 +336,7 @@ pub struct OrderBookAsk {
     price: Decimal,
     volume: Decimal,
     #[serde_as(as = "TimestampSeconds<i64>")]
-    timestamp: chrono::DateTime<Utc>
+    timestamp: chrono::DateTime<Utc>,
 }
 
 pub type OrderBookBid = OrderBookAsk;
@@ -339,7 +345,7 @@ pub type OrderBookBid = OrderBookAsk;
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct OrderBook {
     asks: Vec<OrderBookAsk>,
-    bids: Vec<OrderBookBid>
+    bids: Vec<OrderBookBid>,
 }
 
 pub type OrderBooks = HashMap<String, OrderBook>;
@@ -349,7 +355,7 @@ pub type OrderBooks = HashMap<String, OrderBook>;
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
 pub struct RecentTradesParams {
     pair: String,
-    since: Option<u64>
+    since: Option<u64>,
 }
 
 impl RecentTradesParams {
@@ -359,7 +365,7 @@ impl RecentTradesParams {
             Some(since) => {
                 Self {
                     pair,
-                    since: Some(since.timestamp() as u64)
+                    since: Some(since.timestamp() as u64),
                 }
             }
         }
@@ -371,7 +377,7 @@ pub enum Side {
     #[serde(rename = "b")]
     Buy,
     #[serde(rename = "s")]
-    Sell
+    Sell,
 }
 
 #[derive(Debug, Serialize, Deserialize, EnumDisplay)]
@@ -379,7 +385,7 @@ pub enum TradeType {
     #[serde(rename = "m")]
     Market,
     #[serde(rename = "l")]
-    Limit
+    Limit,
 }
 
 #[serde_as]
@@ -392,7 +398,7 @@ pub struct TradeData {
     time: chrono::DateTime<Utc>,
     side: Side,
     trade_type: TradeType,
-    miscellaneous: String
+    miscellaneous: String,
 }
 
 
@@ -403,5 +409,5 @@ pub struct RecentTrades {
     #[serde_as(as = "DisplayFromStr")]
     last: u128,
     #[serde(flatten)]
-    trade_data: HashMap<String, Vec<TradeData>>
+    trade_data: HashMap<String, Vec<TradeData>>,
 }
