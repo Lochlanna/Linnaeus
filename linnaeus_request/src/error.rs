@@ -21,8 +21,10 @@ pub enum SignatureGenerationError {
 #[derive(DebugAsJson, Deserialize, Serialize, EnumDisplay, EnumString)]
 pub enum Severity {
     #[serde(rename = "E")]
+    #[strum(serialize="E",serialize="e")]
     Error,
     #[serde(rename = "W")]
+    #[strum(serialize="W",serialize="w")]
     Warning,
 }
 
@@ -109,7 +111,7 @@ pub enum RequestError {
     Kraken(#[from] KrakenErrors),
     #[error("Couldn't deserialize data from request -> {0} -> string was {1}")]
     DeserializationError(#[source] serde_json::error::Error, String),
-    #[error("Couldn't parse response")]
+    #[error("Couldn't parse response -> {0}")]
     ParsingError(String),
     #[error("An error occurred with message -> {0}")]
     Other(String),

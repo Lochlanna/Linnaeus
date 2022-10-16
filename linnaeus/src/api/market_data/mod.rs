@@ -96,3 +96,17 @@ pub async fn ticker_information(
     )
         .await
 }
+
+pub async fn ohlc(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &OHLCDataParams
+) -> Result<OHLCData, error::RequestError> {
+    do_request_with_query(
+        client,
+        "/public/OHLC",
+        http::Method::GET,
+        EndpointSecurityType::None,
+        params
+    )
+        .await
+}

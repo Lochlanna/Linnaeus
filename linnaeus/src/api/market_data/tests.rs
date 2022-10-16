@@ -1,6 +1,8 @@
+use std::ops::Sub;
 use super::*;
 use crate::test_helpers::*;
 use anyhow::Result;
+use chrono::Utc;
 use pretty_assertions::{assert_eq};
 use log::info;
 
@@ -68,5 +70,16 @@ async fn test_ticker_info() -> Result<()> {
     let ticker_info = ticker_information(&bin, &params).await?;
     info!("ticker info for XBTUSD is {:?}", ticker_info);
     assert_eq!(ticker_info.len(), 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_ohlc() -> Result<()> {
+    let bin = setup();
+    let since = Utc::now().sub(chrono::Duration::minutes(2));
+    let params = OHLCDataParams::new("XBTUSD".to_string(), Some(Interval::OneMin), Some(since));
+    let ohlc_info = ohlc(&bin, &params).await?;
+    info!("ohlc info for XBTUSD is {:?}", ohlc_info);
+    assert_eq!(ohlc_info.tick_data().len(), 1);
     Ok(())
 }

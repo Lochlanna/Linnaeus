@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use chrono::{FixedOffset, Utc};
 use derive_getters::Getters;
@@ -211,3 +212,86 @@ pub struct TickerInformation {
 }
 
 pub type MultiTickerInformation = HashMap<String, TickerInformation>;
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+pub enum Interval {
+    #[serde(rename = "1")]
+    OneMin,
+    #[serde(rename = "5")]
+    FiveMin,
+    #[serde(rename = "15")]
+    FifteenMin,
+    #[serde(rename = "30")]
+    ThirtyMin,
+    #[serde(rename = "60")]
+    OneHour,
+    #[serde(rename = "240")]
+    FourHour,
+    #[serde(rename = "1440")]
+    OneDay,
+    #[serde(rename = "10080")]
+    OneWeek,
+    #[serde(rename = "21600")]
+    FifteenDay
+}
+
+impl From<Interval> for Duration {
+    fn from(i: Interval) -> Self {
+        match i {
+            Interval::OneMin => Duration::from_secs(60),
+            Interval::FiveMin => Duration::from_secs(5*60),
+            Interval::FifteenMin => Duration::from_secs(15*60),
+            Interval::ThirtyMin => Duration::from_secs(30*60),
+            Interval::OneHour => Duration::from_secs(60*60),
+            Interval::FourHour => Duration::from_secs(240*60),
+            Interval::OneDay => Duration::from_secs(1440*60),
+            Interval::OneWeek => Duration::from_secs(10080*60),
+            Interval::FifteenDay => Duration::from_secs(21600*60),
+        }
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
+pub struct OHLCDataParams {
+    pair: String,
+    interval: Option<Interval>,
+    since: Option<u64>
+}
+
+impl OHLCDataParams {
+    pub fn new(pair: String, interval: Option<Interval>, since: Option<chrono::DateTime<Utc>>) -> Self {
+        match since {
+            None => Self { pair, interval, since: None },
+            Some(since) => {
+                Self {
+                    pair,
+                    interval,
+                    since: Some(since.timestamp() as u64)
+                }
+            }
+        }
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct TickData {
+    #[serde(deserialize_with = "crate::api::datetime_from_timestamp_deserializer")]
+    time: chrono::DateTime<Utc>,
+    open: Decimal,
+    high: Decimal,
+    low: Decimal,
+    close: Decimal,
+    volume_weighted_average_price: Decimal,
+    volume: Decimal,
+    count: i64
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct OHLCData {
+    last: i64,
+    #[serde(flatten)]
+    tick_data: HashMap<String, Vec<TickData>>
+}
