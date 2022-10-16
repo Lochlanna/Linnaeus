@@ -83,3 +83,14 @@ async fn test_ohlc() -> Result<()> {
     assert_eq!(ohlc_info.tick_data().len(), 1);
     Ok(())
 }
+
+#[tokio::test]
+async fn test_recent_trades() -> Result<()> {
+    let bin = setup();
+    let since = Utc::now().sub(chrono::Duration::minutes(2));
+    let params = RecentTradesParams::new("XBTUSD".to_string(), Some(since));
+    let recent_trades = recent_trades(&bin, &params).await?;
+    info!("recent trades for XBTUSD is {:?}", recent_trades);
+    assert_eq!(recent_trades.trade_data().len(), 1);
+    Ok(())
+}

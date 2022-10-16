@@ -158,7 +158,7 @@ pub struct TradingAssetPair {
 pub type TradingAssetPairs = HashMap<String, TradingAssetPair>;
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new)]
 pub struct TickerInfoParams {
     pair: String
 }
@@ -294,4 +294,63 @@ pub struct OHLCData {
     last: i64,
     #[serde(flatten)]
     tick_data: HashMap<String, Vec<TickData>>
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
+pub struct RecentTradesParams {
+    pair: String,
+    since: Option<u64>
+}
+
+impl RecentTradesParams {
+    pub fn new(pair: String, since: Option<chrono::DateTime<Utc>>) -> Self {
+        match since {
+            None => Self { pair, since: None },
+            Some(since) => {
+                Self {
+                    pair,
+                    since: Some(since.timestamp() as u64)
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+pub enum Side {
+    #[serde(rename = "b")]
+    Buy,
+    #[serde(rename = "s")]
+    Sell
+}
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+pub enum TradeType {
+    #[serde(rename = "m")]
+    Market,
+    #[serde(rename = "l")]
+    Limit
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct TradeData {
+    price: Decimal,
+    volume: Decimal,
+    #[serde(deserialize_with = "crate::api::datetime_from_float_timestamp_deserializer")]
+    time: chrono::DateTime<Utc>,
+    side: Side,
+    trade_type: TradeType,
+    miscellaneous: String
+}
+
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct RecentTrades {
+    #[serde(deserialize_with = "crate::api::u128_from_string")]
+    last: u128,
+    #[serde(flatten)]
+    trade_data: HashMap<String, Vec<TradeData>>
 }

@@ -110,3 +110,17 @@ pub async fn ohlc(
     )
         .await
 }
+
+pub async fn recent_trades(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &RecentTradesParams
+) -> Result<RecentTrades, error::RequestError> {
+    do_request_with_query(
+        client,
+        "/public/Trades",
+        http::Method::GET,
+        EndpointSecurityType::None,
+        params
+    )
+        .await
+}
