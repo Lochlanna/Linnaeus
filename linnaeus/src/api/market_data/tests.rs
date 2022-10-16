@@ -97,7 +97,7 @@ async fn test_order_book() -> Result<()> {
 #[tokio::test]
 async fn test_recent_trades() -> Result<()> {
     let bin = setup();
-    let since = Utc::now().sub(chrono::Duration::minutes(2));
+    let since = Utc::now().sub(chrono::Duration::minutes(1));
     let params = RecentTradesParams::new("XBTUSD".to_string(), Some(since));
     let recent_trades = recent_trades(&bin, &params).await?;
     info!("recent trades for XBTUSD is {:?}", recent_trades);
