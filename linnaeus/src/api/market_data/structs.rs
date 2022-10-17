@@ -11,6 +11,7 @@ use serde_with::{skip_serializing_none, serde_as, StringWithSeparator, Timestamp
 use strum::Display as EnumDisplay;
 use derive_new::new;
 use serde_with::formats::{CommaSeparator};
+use kraken_enums::{TradeablePair, Currency};
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct ServerTime {
@@ -48,19 +49,19 @@ pub struct SystemStatus {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters)]
 pub struct AssetInfoParams {
-    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
-    asset: Vec<String>,
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, Currency>")]
+    asset: Vec<Currency>,
     aclass: Option<String>,
 }
 
 impl AssetInfoParams {
-    pub fn new(assets: Vec<String>) -> Self {
+    pub fn new(assets: Vec<Currency>) -> Self {
         AssetInfoParams {
             asset: assets,
             aclass: None,
         }
     }
-    pub fn new_with_class(assets: Vec<String>, class: String) -> Self {
+    pub fn new_with_class(assets: Vec<Currency>, class: String) -> Self {
         AssetInfoParams {
             asset: assets,
             aclass: Some(class),
@@ -103,24 +104,24 @@ impl Default for TradableAssetPairDetailLevel {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default)]
 pub struct TradableAssetPairsParams {
-    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, TradeablePair>")]
     #[serde(rename = "pair")]
-    pairs: Vec<String>,
+    pairs: Vec<TradeablePair>,
     #[serde(rename = "info")]
     detail_level: TradableAssetPairDetailLevel,
 }
 
 impl TradableAssetPairsParams {
-    pub fn new(pairs: Vec<String>, detail_level: TradableAssetPairDetailLevel) -> Self {
+    pub fn new(pairs: Vec<TradeablePair>, detail_level: TradableAssetPairDetailLevel) -> Self {
         Self {
             pairs,
             detail_level,
         }
     }
-    pub fn add_pair(&mut self, pair: String) {
+    pub fn add_pair(&mut self, pair: TradeablePair) {
         self.pairs.push(pair)
     }
-    pub fn add_pairs(&mut self, mut pairs: Vec<String>) {
+    pub fn add_pairs(&mut self, mut pairs: Vec<TradeablePair>) {
         self.pairs.append(&mut pairs);
     }
 }
@@ -169,7 +170,7 @@ pub type TradingAssetPairs = HashMap<String, TradingAssetPair>;
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new)]
 pub struct TickerInfoParams {
-    pair: String,
+    pair: TradeablePair,
 }
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
@@ -263,18 +264,18 @@ impl From<Interval> for Duration {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
 pub struct OHLCDataParams {
-    pair: String,
+    pair: Option<TradeablePair>,
     interval: Option<Interval>,
     since: Option<u64>,
 }
 
 impl OHLCDataParams {
-    pub fn new(pair: String, interval: Option<Interval>, since: Option<chrono::DateTime<Utc>>) -> Self {
+    pub fn new(pair: TradeablePair, interval: Option<Interval>, since: Option<chrono::DateTime<Utc>>) -> Self {
         match since {
-            None => Self { pair, interval, since: None },
+            None => Self { pair: Some(pair), interval, since: None },
             Some(since) => {
                 Self {
-                    pair,
+                    pair: Some(pair),
                     interval,
                     since: Some(since.timestamp() as u64),
                 }
@@ -309,19 +310,19 @@ pub struct OHLCData {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty)]
 pub struct OrderBookParams {
-    pair: String,
+    pair: TradeablePair,
     count: u16,
 }
 
 impl OrderBookParams {
-    pub fn new(pair: String) -> Self {
+    pub fn new(pair: TradeablePair) -> Self {
         Self {
             pair,
             count: 100,
         }
     }
 
-    pub fn new_with_count(pair: String, count: u16) -> Self {
+    pub fn new_with_count(pair: TradeablePair, count: u16) -> Self {
         Self {
             pair,
             count,
@@ -354,17 +355,17 @@ pub type OrderBooks = HashMap<String, OrderBook>;
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
 pub struct RecentTradesParams {
-    pair: String,
+    pair: Option<TradeablePair>,
     since: Option<u64>,
 }
 
 impl RecentTradesParams {
-    pub fn new(pair: String, since: Option<chrono::DateTime<Utc>>) -> Self {
+    pub fn new(pair: TradeablePair, since: Option<chrono::DateTime<Utc>>) -> Self {
         match since {
-            None => Self { pair, since: None },
+            None => Self { pair: Some(pair), since: None },
             Some(since) => {
                 Self {
-                    pair,
+                    pair: Some(pair),
                     since: Some(since.timestamp() as u64),
                 }
             }
