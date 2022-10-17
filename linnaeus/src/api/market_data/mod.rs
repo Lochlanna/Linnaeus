@@ -138,3 +138,17 @@ pub async fn recent_trades(
     )
         .await
 }
+
+pub async fn recent_spreads(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &RecentSpreadsParams
+) -> Result<RecentSpreads, error::RequestError> {
+    do_request_with_query(
+        client,
+        "/public/Spread",
+        http::Method::GET,
+        EndpointSecurityType::None,
+        params
+    )
+        .await
+}

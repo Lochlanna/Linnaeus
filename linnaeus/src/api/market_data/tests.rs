@@ -10,7 +10,7 @@ use tokio::io::AsyncWriteExt;
 use kraken_enums::{Pair, TradeablePair};
 use kraken_enums::Currency::{BTC, USD, ETH};
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_time() -> Result<()> {
     let bin = setup();
     let server_time = server_time(&bin).await?;
@@ -18,7 +18,7 @@ async fn test_time() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_system_status() -> Result<()> {
     let bin = setup();
     let ss = system_status(&bin).await?;
@@ -26,7 +26,7 @@ async fn test_system_status() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_asset_info() -> Result<()> {
     let bin = setup();
     let params = AssetInfoParams::new(vec![ETH, BTC]);
@@ -36,7 +36,7 @@ async fn test_asset_info() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_all_asset_info() -> Result<()> {
     let bin = setup();
@@ -45,7 +45,7 @@ async fn test_all_asset_info() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_trading_asset_pairs() -> Result<()> {
     let bin = setup();
     let mut params = TradableAssetPairsParams::default();
@@ -57,7 +57,7 @@ async fn test_trading_asset_pairs() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_all_trading_asset_pairs() -> Result<()> {
     let bin = setup();
@@ -66,7 +66,7 @@ async fn test_all_trading_asset_pairs() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn list_all_trading_asset_pairs() -> Result<()> {
     let bin = setup();
@@ -82,7 +82,7 @@ async fn list_all_trading_asset_pairs() -> Result<()> {
 }
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_ticker_info() -> Result<()> {
     let bin = setup();
     let params = TickerInfoParams::new(Pair::new(BTC, USD).try_into().expect("couldn't get tradable pair from pair"));
@@ -92,7 +92,7 @@ async fn test_ticker_info() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_ohlc() -> Result<()> {
     let bin = setup();
     let since = Utc::now().sub(chrono::Duration::minutes(2));
@@ -103,7 +103,7 @@ async fn test_ohlc() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_order_book() -> Result<()> {
     let bin = setup();
     let params = OrderBookParams::new(TradeablePair::XBTUSDT);
@@ -113,7 +113,7 @@ async fn test_order_book() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_recent_trades() -> Result<()> {
     let bin = setup();
     let since = Utc::now().sub(chrono::Duration::minutes(1));
@@ -121,5 +121,15 @@ async fn test_recent_trades() -> Result<()> {
     let recent_trades = recent_trades(&bin, &params).await?;
     info!("recent trades for XBTUSD is {:?}", recent_trades);
     assert_eq!(recent_trades.trade_data().len(), 1);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_recent_spreads() -> Result<()> {
+    let bin = setup();
+    let params = RecentSpreadsParams::new(TradeablePair::XBTUSDT, None);
+    let recent_spreads = recent_spreads(&bin, &params).await?;
+    info!("recent spreads for XBTUSD is {:?}", recent_spreads);
+    assert_eq!(recent_spreads.spread_data().len(), 1);
     Ok(())
 }

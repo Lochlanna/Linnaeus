@@ -408,7 +408,32 @@ pub struct TradeData {
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
 pub struct RecentTrades {
     #[serde_as(as = "DisplayFromStr")]
-    last: u128,
+    last: u64,
     #[serde(flatten)]
     trade_data: HashMap<String, Vec<TradeData>>,
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new)]
+pub struct RecentSpreadsParams {
+    pair: TradeablePair,
+    since: Option<u64>,
+}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct SpreadData {
+    id: u64,
+    buy: Decimal,
+    sell: Decimal
+}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct RecentSpreads {
+    last: u64,
+    #[serde(flatten)]
+    spread_data: HashMap<String, Vec<SpreadData>>,
 }
