@@ -1,23 +1,38 @@
 pub mod error;
 
+use std::fmt::Display;
 use chrono::{TimeZone, Utc};
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use error::KrakenErrors;
 use hmac::{Hmac, Mac};
-use log::trace;
+use log::{info, trace};
 use reqwest::RequestBuilder;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
+use sha2::{Sha256, Sha512, Digest};
 use strum::Display;
-
-#[inline(always)]
-fn nanos_to_seconds(nanos: i64) -> f64 {
-    (nanos as f64) / 1e-9
-}
+use serde_with::{skip_serializing_none, serde_as};
 
 #[derive(Serialize)]
 struct Empty {}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Debug, Serialize)]
+pub struct KrakenRequest<T: serde::Serialize> {
+    pub nonce: u64,
+    #[serde(flatten)]
+    pub payload: T
+}
+
+impl<T> Display for KrakenRequest<T> where T: Serialize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match serde_json::to_string(self) {
+            Ok(kr_str) => f.write_str(&kr_str),
+            Err(_) => Err(std::fmt::Error{})
+        }
+    }
+}
 
 #[derive(Serialize)]
 struct Payload<'a, T: Serialize> {
@@ -47,36 +62,38 @@ pub trait RequestClient {
     fn get_client(&self) -> &reqwest::Client;
     fn get_api_key(&self) -> &str;
     fn get_api_private_key(&self) -> &str;
-    fn get_passphrase(&self) -> &str;
     fn get_base_url(&self) -> &str;
     fn get_next_nonce(&self) -> u64 {
-        let from = Utc.ymd(2022, 10, 17).and_hms(16, 57, 46);
-        let diff = Utc::now() - from;
-        diff.num_nanoseconds().expect("Oh my; This has been running for ~292.4 years...? Or is your clock just wrong??") as u64
+        let from = Utc.ymd(2022, 10, 17).and_hms(11, 11, 11);
+         let diff = Utc::now() - from;
+        diff.num_milliseconds() as u64
     }
 }
 
 pub trait RequestHelpers: RequestClient {
     fn generate_signature<T: Serialize>(
         &self,
-        data: Option<&T>,
-        method: &http::Method,
+        data: &KrakenRequest<T>,
         path: &str,
-        timestamp: f64,
     ) -> Result<String, error::SignatureGenerationError> {
-        let json_data = match data {
-            Some(data) => serde_json::to_string(data)?,
-            None => String::new(),
-        };
-        let message = format!("{}{}{}{}", timestamp, method, path, json_data);
+        let form_data = serde_urlencoded::to_string(&data)?;
+
+        let message = format!("{}{}", data.nonce, form_data);
+        trace!("signature message is {}", message);
+        //SHA256(nonce + POST data)
+        let mut sha256_hasher = Sha256::new();
+        sha256_hasher.update(message.as_bytes());
+        let inner_message = sha256_hasher.finalize();
+
         let hmac_key = base64::decode(self.get_api_private_key())?;
-        let mut mac = match Hmac::<Sha256>::new_from_slice(&hmac_key) {
+        let mut mac = match Hmac::<Sha512>::new_from_slice(&hmac_key) {
             Ok(mac) => mac,
             Err(_) => {
                 return Err(error::SignatureGenerationError::InvalidSecret);
             }
         };
-        mac.update(message.as_bytes());
+        mac.update(path.as_bytes());
+        mac.update(&inner_message[..]);
         let result = mac.finalize();
         let result = base64::encode(result.into_bytes());
         Ok(result)
@@ -133,26 +150,27 @@ pub trait RequestHelpers: RequestClient {
         let url = self.get_base_url().to_string() + path;
         let mut req = self
             .get_client()
-            .request(method.clone(), &url)
+            .request(method, &url)
             .header(http::header::USER_AGENT, "Linnaeus");
 
         if security_type.is_secure() {
-            let timestamp = chrono::Utc::now();
-            let timestamp_seconds = nanos_to_seconds(timestamp.timestamp_nanos());
-            let signature = self.generate_signature(data, &method, &url, timestamp_seconds)?;
+            let payload_with_nonce = KrakenRequest {
+                payload: data,
+                nonce: self.get_next_nonce()
+            };
+            let signature = self.generate_signature(&payload_with_nonce, path)?;
+            trace!("request signature is {}", signature);
             req = req
-                .header("CB-ACCESS-KEY", self.get_api_key())
-                .header("CB-ACCESS-SIGN", signature)
-                .header("CB-ACCESS-TIMESTAMP", timestamp_seconds.to_string())
-                .header("CB-ACCESS-PASSPHRASE", self.get_passphrase());
+                .header("API-Key", self.get_api_key())
+                .header("API-Sign", signature).form(&payload_with_nonce);
+        } else if let Some(payload) = data {
+            req = req.form(payload)
         }
 
         if let Some(query) = query {
             req = req.query(query)
         }
-        if let Some(payload) = data {
-            req = req.form(payload)
-        }
+
         trace!(
             "Generated request for {}: {:?} with security type {}",
             path,
@@ -286,8 +304,7 @@ where
 mod tests {
     use super::*;
     use anyhow::Result;
-    use chrono::{TimeZone, Utc};
-    use pretty_assertions::assert_eq;
+    use pretty_assertions::{assert_eq, assert_str_eq};
     use reqwest::Client;
     use serde::Serialize;
 
@@ -313,12 +330,8 @@ mod tests {
         }
 
         fn get_api_private_key(&self) -> &str {
-            "SbSF/fI5QLNBzl4tqgrFNmgolkgxixR0M1iw2XDWRtJV9lARYR5418hhvDEV3wwpmJ8zXNkok7oBHWjpasTXaA=="
+            "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
             // Not a real secret
-        }
-
-        fn get_passphrase(&self) -> &str {
-            "lbhoaxk52vp" // Not a real passphrase
         }
 
         fn get_base_url(&self) -> &str {
@@ -327,32 +340,56 @@ mod tests {
     }
 
     impl RequestHelpers for MockClient {}
+
     #[derive(Serialize)]
     struct TestStructure {
-        a: u8,
-        b: String,
+        a:u8,
+        b:String,
+    }
+
+    #[derive(Serialize)]
+    struct SignTestStructure {
+        #[serde(rename = "ordertype")]
+        order_type: String,
+        pair:String,
+        price:u32,
+        #[serde(rename = "type")]
+        transaction_type:String,
+        volume:f32
+    }
+
+    impl Default for SignTestStructure {
+        fn default() -> Self {
+            Self {
+                order_type: "limit".to_string(),
+                pair: "XBTUSD".to_string(),
+                price: 37500,
+                transaction_type: "buy".to_string(),
+                volume: 1.25
+            }
+        }
     }
 
     #[test]
     fn test_signature_generation() -> Result<()> {
         let mock = MockClient::new();
 
-        let test_struct = TestStructure {
-            a: 3,
-            b: "hello".to_string(),
+        let test_input = KrakenRequest {
+            payload: SignTestStructure::default(),
+            nonce: 1616492376594
         };
-        println!("json:{}", serde_json::to_string(&test_struct)?);
+        let url_encoded = serde_urlencoded::to_string(&test_input)?;
+        assert_str_eq!("nonce=1616492376594&ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25", url_encoded);
+        println!("form:{}", url_encoded);
         let res = mock.generate_signature(
-            Some(&test_struct),
-            &http::method::Method::POST,
-            "/test/path",
-            12345.6,
+            &test_input,
+            "/0/private/AddOrder"
         )?;
-        assert_eq!(res, "JYoMt3NelQ/3/h7f9UpqTUAiHrYoyBrdkOS0+zuvTf8=");
+        assert_eq!(res, "4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ==");
         Ok(())
     }
 
-    fn verify_body(req: &reqwest::Request, expecting: &str) {
+    fn get_body(req: &reqwest::Request) -> String {
         assert!(req.body().is_some());
         let body_bytes = req
             .body()
@@ -361,7 +398,7 @@ mod tests {
             .expect("Couldn't get the request body as bytes");
         let body_str: String =
             String::from_utf8(Vec::from(body_bytes)).expect("Couldn't encode body as utf-8");
-        assert_eq!(body_str, expecting);
+        body_str
     }
 
     #[test]
@@ -380,32 +417,19 @@ mod tests {
             )?
             .build()?;
 
-        assert!(!res.headers().contains_key("CB-ACCESS-KEY"));
-        assert!(!res.headers().contains_key("CB-ACCESS-SIGN"));
-        assert!(!res.headers().contains_key("CB-ACCESS-TIMESTAMP"));
-        assert!(!res.headers().contains_key("CB-ACCESS-PASSPHRASE"));
+        assert!(!res.headers().contains_key("API-Key"));
+        assert!(!res.headers().contains_key("API-Sign"));
 
-        verify_body(&res, "a=3&b=hello");
+        let body = get_body(&res);
+        let body_map: std::collections::HashMap<String, String> = serde_urlencoded::from_str(&body)?;
+        assert_eq!(body_map.len(), 2);
+        assert!(body_map.contains_key("a"));
+        assert!(body_map.contains_key("b"));
+        assert!(!body_map.contains_key("nonce"));
+        assert_str_eq!(body_map["a"], "3");
+        assert_str_eq!(body_map["b"], "hello");
 
         Ok(())
-    }
-
-    #[inline(always)]
-    fn seconds_to_nanos(seconds: f64) -> i64 {
-        ((seconds as f64) * 1e-9) as i64
-    }
-
-    fn get_time_stamp_from_headers(req: &reqwest::Request) -> chrono::DateTime<Utc> {
-        let ts_bytes = req
-            .headers()
-            .get("CB-ACCESS-TIMESTAMP")
-            .expect("Couldn't get timestamp header")
-            .as_bytes();
-        let ts_str = String::from_utf8(Vec::from(ts_bytes)).expect("timestamp header wasnt' utf-8");
-
-        let seconds: f64 = ts_str.parse().expect("couldn't parse timestamp as f64");
-        let nanos = seconds_to_nanos(seconds);
-        Utc.timestamp_nanos(nanos)
     }
 
     #[test]
@@ -424,31 +448,24 @@ mod tests {
             )?
             .build()?;
 
-        assert!(res.headers().contains_key("CB-ACCESS-KEY"));
-        assert!(res.headers().contains_key("CB-ACCESS-SIGN"));
-        assert!(res.headers().contains_key("CB-ACCESS-TIMESTAMP"));
-        assert!(res.headers().contains_key("CB-ACCESS-PASSPHRASE"));
+        assert!(res.headers().contains_key("API-key"));
+        assert!(res.headers().contains_key("API-Sign"));
 
-        assert_eq!(
+        assert_str_eq!(
             res.headers()
-                .get("CB-ACCESS-KEY")
-                .expect("Couldn't get access key"),
+                .get("API-Key")
+                .expect("Couldn't get access key").to_str()?,
             mock.get_api_key()
         );
-        assert!(res.headers().get("CB-ACCESS-SIGN").is_some());
 
-        let header_ts = get_time_stamp_from_headers(&res);
-        let diff = Utc::now() - header_ts;
-        assert!(diff < chrono::Duration::seconds(1));
-
-        assert_eq!(
-            res.headers()
-                .get("CB-ACCESS-PASSPHRASE")
-                .expect("Couldn't get passphrase"),
-            mock.get_passphrase()
-        );
-
-        verify_body(&res, "a=3&b=hello");
+        let body = get_body(&res);
+        let body_map: std::collections::HashMap<String, String> = serde_urlencoded::from_str(&body)?;
+        assert_eq!(body_map.len(),3);
+        assert!(body_map.contains_key("a"));
+        assert!(body_map.contains_key("b"));
+        assert!(body_map.contains_key("nonce"));
+        assert_str_eq!(body_map["a"], "3");
+        assert_str_eq!(body_map["b"], "hello");
 
         Ok(())
     }

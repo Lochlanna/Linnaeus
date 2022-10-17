@@ -9,7 +9,6 @@ use simple_logger::SimpleLogger;
 pub struct AppConfig {
     api_key: String,
     api_private_key: String,
-    api_passphrase: String,
     base_url: String,
     ws_url: String,
 }
@@ -30,9 +29,6 @@ impl AppConfig {
     pub fn api_private_key(&self) -> &str {
         &self.api_private_key
     }
-    pub fn api_passphrase(&self) -> &str {
-        &self.api_passphrase
-    }
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
@@ -51,7 +47,7 @@ pub fn setup() -> Linnaeus {
     INIT.call_once(|| {
         SimpleLogger::new()
             .env()
-            .with_level(log::LevelFilter::Info)
+            .with_level(log::LevelFilter::Trace)
             .init()
             .unwrap();
     });
@@ -59,7 +55,6 @@ pub fn setup() -> Linnaeus {
     let bin = Linnaeus::new(
         cfg.api_key(),
         cfg.api_private_key(),
-        cfg.api_passphrase(),
         cfg.base_url(),
         cfg.ws_url()
     );

@@ -11,7 +11,7 @@ pub async fn server_time(
 ) -> Result<ServerTime, error::RequestError> {
     do_request_no_params(
         client,
-        "/public/Time",
+        "/0/public/Time",
         http::Method::GET,
         EndpointSecurityType::None,
     )
@@ -23,7 +23,7 @@ pub async fn system_status(
 ) -> Result<SystemStatus, error::RequestError> {
     do_request_no_params(
         client,
-        "/public/SystemStatus",
+        "/0/public/SystemStatus",
         http::Method::GET,
         EndpointSecurityType::None,
     )
@@ -36,7 +36,7 @@ pub async fn asset_info(
 ) -> Result<AssetInfo, error::RequestError> {
     do_request_with_query(
         client,
-        "/public/Assets",
+        "/0/public/Assets",
         http::Method::GET,
         EndpointSecurityType::None,
         params
@@ -49,7 +49,7 @@ pub async fn all_asset_info(
 ) -> Result<AssetInfo, error::RequestError> {
     do_request_no_params(
         client,
-        "/public/Assets",
+        "/0/public/Assets",
         http::Method::GET,
         EndpointSecurityType::None,
     )
@@ -63,7 +63,7 @@ pub async fn tradable_asset_pairs(
 ) -> Result<TradingAssetPairs, error::RequestError> {
     do_request_with_query(
         client,
-        "/public/AssetPairs",
+        "/0/public/AssetPairs",
         http::Method::GET,
         EndpointSecurityType::None,
         params
@@ -76,7 +76,7 @@ pub async fn all_tradable_asset_pairs(
 ) -> Result<TradingAssetPairs, error::RequestError> {
     do_request_no_params(
         client,
-        "/public/AssetPairs",
+        "/0/public/AssetPairs",
         http::Method::GET,
         EndpointSecurityType::None,
     )
@@ -89,7 +89,7 @@ pub async fn ticker_information(
 ) -> Result<MultiTickerInformation, error::RequestError> {
     do_request_with_query(
         client,
-        "/public/Ticker",
+        "/0/public/Ticker",
         http::Method::GET,
         EndpointSecurityType::None,
         params
@@ -103,7 +103,7 @@ pub async fn ohlc(
 ) -> Result<OHLCData, error::RequestError> {
     do_request_with_query(
         client,
-        "/public/OHLC",
+        "/0/public/OHLC",
         http::Method::GET,
         EndpointSecurityType::None,
         params
@@ -117,7 +117,7 @@ pub async fn order_book(
 ) -> Result<OrderBooks, error::RequestError> {
     do_request_with_query(
         client,
-        "/public/Depth",
+        "/0/public/Depth",
         http::Method::GET,
         EndpointSecurityType::None,
         params
@@ -131,7 +131,7 @@ pub async fn recent_trades(
 ) -> Result<RecentTrades, error::RequestError> {
     do_request_with_query(
         client,
-        "/public/Trades",
+        "/0/public/Trades",
         http::Method::GET,
         EndpointSecurityType::None,
         params
@@ -145,7 +145,7 @@ pub async fn recent_spreads(
 ) -> Result<RecentSpreads, error::RequestError> {
     do_request_with_query(
         client,
-        "/public/Spread",
+        "/0/public/Spread",
         http::Method::GET,
         EndpointSecurityType::None,
         params

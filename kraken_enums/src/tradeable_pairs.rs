@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, Serialize, Deserialize, EnumString, IntoStaticStr, Clone, StrumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumString, IntoStaticStr, Clone, StrumDisplay, PartialEq, Eq)]
 pub enum TradeablePair {
     MULTIEUR,
     LSKEUR,

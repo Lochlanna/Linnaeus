@@ -8,7 +8,7 @@ use serde::{Serialize, Deserialize};
 use strum::{IntoStaticStr, EnumString};
 use strum::Display as StrumDisplay;
 
-#[derive(Debug, Serialize, Deserialize, EnumString, IntoStaticStr, Clone, StrumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumString, IntoStaticStr, Clone, StrumDisplay, PartialEq, Eq)]
 pub enum Currency {
     USD,
     EUR,

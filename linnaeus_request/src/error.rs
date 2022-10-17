@@ -11,7 +11,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum SignatureGenerationError {
     #[error("Error serializing signature generation input -> {0}")]
-    SerializationError(#[from] serde_json::Error),
+    SerializationError(#[from] serde_urlencoded::ser::Error),
     #[error("Error doing a base64 decode of secret key -> {0}")]
     SecretError(#[from] base64::DecodeError),
     #[error("Error creating hmac generator from secret")]

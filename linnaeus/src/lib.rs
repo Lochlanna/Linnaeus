@@ -12,7 +12,6 @@ pub struct Linnaeus {
     client: Client,
     api_key: String,
     api_private_key: String,
-    api_passphrase: String,
     base_url: String,
     ws_url: String,
 }
@@ -21,7 +20,6 @@ impl Linnaeus {
     pub fn new(
         api_key: &str,
         api_private_key: &str,
-        passphrase: &str,
         base_url: &str,
         ws_url: &str,
     ) -> Self {
@@ -29,7 +27,6 @@ impl Linnaeus {
             client: Client::new(),
             api_key: String::from(api_key),
             api_private_key: String::from(api_private_key),
-            api_passphrase: String::from(passphrase),
             base_url: String::from(base_url),
             ws_url: String::from(ws_url),
         }
@@ -51,10 +48,6 @@ impl linnaeus_request::RequestClient for Linnaeus {
 
     fn get_base_url(&self) -> &str {
         &self.base_url
-    }
-
-    fn get_passphrase(&self) -> &str {
-        &self.api_passphrase
     }
 }
 
