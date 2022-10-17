@@ -163,7 +163,7 @@ pub enum TradeablePair {
     AUDIOUSD,
     POLISUSD,
     TRXETH,
-    #[strum(serialize = "1INCHEUR", to_string = "1INCHEUR")]
+    #[strum(serialize = "1INCHEUR")]
     #[serde(rename = "1INCHEUR")]
     ONEINCHEUR,
     AAVEGBP,
@@ -341,7 +341,7 @@ pub enum TradeablePair {
     SYNUSD,
     BTTUSD,
     INJUSD,
-    #[strum(serialize = "ETH2.SETH", to_string = "ETH2.SETH")]
+    #[strum(serialize = "ETH2.SETH")]
     #[serde(rename = "ETH2.SETH")]
     ETH2SETH,
     LSKETH,
@@ -567,7 +567,7 @@ pub enum TradeablePair {
     ALGOUSDT,
     KNCEUR,
     XXLMZEUR,
-    #[strum(serialize = "1INCHUSD", to_string = "1INCHUSD")]
+    #[strum(serialize = "1INCHUSD")]
     #[serde(rename = "1INCHUSD")]
     ONEINCHUSD,
     SYNEUR,

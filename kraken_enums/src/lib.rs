@@ -22,7 +22,7 @@ pub enum Currency {
 
     ZRX,
     //1inch
-    #[strum(serialize = "1INCH", to_string = "1INCH")]
+    #[strum(serialize = "1INCH")]
     #[serde(rename = "1INCH")]
     OneInch,
     AAVE,
@@ -239,14 +239,14 @@ pub enum Currency {
 impl Currency {
     fn to_full_name(&self) -> &'static str {
         match self {
-            Currency::USD => "USD",
-            Currency::EUR => "EUR",
-            Currency::CAD => "CAD",
-            Currency::AUD => "AUD",
-            Currency::GBP => "GBP",
-            Currency::CHF => "CHF",
-            Currency::JPY => "JPY",
-            Currency::AED => "AED",
+            Currency::USD => "United States Dollar",
+            Currency::EUR => "Euro",
+            Currency::CAD => "Canadian Dollars",
+            Currency::AUD => "Australian Dollars",
+            Currency::GBP => "Great British Pound",
+            Currency::CHF => "Swiss Franc",
+            Currency::JPY => "Japanese Yen",
+            Currency::AED => "United Arab Emirates Durham",
             Currency::ZRX => "ZRX",
             Currency::OneInch => "1inch",
             Currency::AAVE => "Aave",
