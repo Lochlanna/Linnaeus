@@ -1,5 +1,6 @@
 pub mod error;
 
+use chrono::{TimeZone, Utc};
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use error::KrakenErrors;
 use hmac::{Hmac, Mac};
@@ -48,6 +49,11 @@ pub trait RequestClient {
     fn get_api_private_key(&self) -> &str;
     fn get_passphrase(&self) -> &str;
     fn get_base_url(&self) -> &str;
+    fn get_next_nonce(&self) -> u64 {
+        let from = Utc.ymd(2022, 10, 17).and_hms(16, 57, 46);
+        let diff = Utc::now() - from;
+        diff.num_nanoseconds().expect("Oh my; This has been running for ~292.4 years...? Or is your clock just wrong??") as u64
+    }
 }
 
 pub trait RequestHelpers: RequestClient {
