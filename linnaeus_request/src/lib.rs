@@ -66,7 +66,7 @@ pub trait RequestClient {
     fn get_next_nonce(&self) -> u64 {
         let from = Utc.ymd(2022, 10, 17).and_hms(11, 11, 11);
          let diff = Utc::now() - from;
-        diff.num_milliseconds() as u64
+        diff.num_nanoseconds().expect("oh no...") as u64
     }
 }
 

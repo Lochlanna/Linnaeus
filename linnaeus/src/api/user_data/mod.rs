@@ -12,7 +12,7 @@ pub async fn account_balances(
     do_request_no_params(
         client,
         "/0/private/Balance",
-        http::Method::GET,
+        http::Method::POST,
         EndpointSecurityType::Private,
     )
         .await

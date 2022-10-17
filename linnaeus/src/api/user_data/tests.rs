@@ -4,7 +4,7 @@ use crate::test_helpers::*;
 use anyhow::Result;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_Account_balances() -> Result<()> {
+async fn test_account_balances() -> Result<()> {
     let bin = setup();
     let ab = account_balances(&bin).await?;
     info!("account balances are {:?}", ab);
