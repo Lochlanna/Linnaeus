@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use strum::Display as EnumDisplay;
 use strum::EnumString;
 use thiserror::Error;
+use derive_getters::Getters;
 
 #[derive(Error, Debug)]
 pub enum SignatureGenerationError {
@@ -39,12 +40,78 @@ pub enum Category {
     Funding,
     Service,
 }
-#[derive(Error, DebugAsJson, Deserialize, Serialize)]
+
+#[derive(DebugAsJson, Deserialize, Serialize, EnumDisplay, EnumString)]
+pub enum KrakenErrorMessage {
+    ///The request payload is malformed, incorrect or ambiguous.
+    #[strum(serialize="Invalid arguments")]
+    InvalidArguments,
+    ///Index pricing is unavailable for stop/profit orders on this pair.
+    #[strum(serialize="Invalid arguments:Index unavailable")]
+    InvalidArgumentsIndexUnavailable,
+    ///The matching engine or API is offline
+    #[strum(serialize="Unavailable")]
+    Unavailable,
+    ///Request can't be made at this time. (See SystemStatus endpoint.)
+    #[strum(serialize="Market in cancel_only mode")]
+    MarketInCancelOnlyMode,
+    ///Request can't be made at this time. (See SystemStatus endpoint.)
+    #[strum(serialize="Market in post_only mode")]
+    MarketInPostOnlyMode,
+    ///The request timed out according to the default or specified deadline
+    #[strum(serialize="Deadline elapsed")]
+    DeadlineElapsed,
+    ///An invalid API-Key header was supplied (see Authentication section)
+    #[strum(serialize="Invalid key")]
+    InvalidKey,
+    ///An invalid API-Sign header was supplied (see Authentication section)
+    #[strum(serialize="Invalid signature")]
+    InvalidSignature,
+    ///An invalid nonce was supplied (see Authentication section)
+    #[strum(serialize="Invalid nonce")]
+    InvalidNonce,
+    ///API key doesn't have permission to make this request.
+    #[strum(serialize="Permission denied")]
+    PermissionDenied,
+    ///User/tier is ineligible for margin trading
+    #[strum(serialize="Cannot open position")]
+    CannotOpenPosition,
+    ///User has exceeded their margin allowance
+    #[strum(serialize="Margin allowance exceeded")]
+    MarginAllowanceExceeded,
+    ///Client has insufficient equity or collateral
+    #[strum(serialize="Margin level too low")]
+    MarginLevelTooLow,
+    ///Client would exceed the maximum position size for this pair
+    #[strum(serialize="Margin position size exceeded")]
+    MarginPositionSizeExceeded,
+    ///Exchange does not have available funds for this margin trade
+    #[strum(serialize="Insufficient margin")]
+    InsufficientMargin,
+    ///Client does not have the necessary funds
+    #[strum(serialize="Insufficient funds")]
+    InsufficientFunds,
+    ///Order size does not meet ordermin. (See AssetPairs endpoint.)
+    #[strum(serialize="Order minimum not met")]
+    OrderMinimumNotMet,
+    #[strum(serialize="Orders limit exceeded")]
+    OrdersLimitExceeded,
+    #[strum(serialize="Rate limit exceeded")]
+    RateLimitExceeded,
+    #[strum(serialize="Positions limit exceeded")]
+    PositionsLimitExceeded,
+    #[strum(serialize="Unknown position")]
+    UnknownPosition,
+    Other(String)
+}
+
+
+#[derive(Error, DebugAsJson, Deserialize, Serialize, Getters)]
 #[error("Kraken error -> {severity}{category}:{message}")]
 pub struct KrakenError {
     severity: Severity,
     category: Category,
-    message: String,
+    message: KrakenErrorMessage,
 }
 
 impl KrakenError {
@@ -88,10 +155,11 @@ impl TryFrom<&str> for KrakenError {
                 )))
             }
         };
+        let message = KrakenErrorMessage::try_from(message).unwrap_or(KrakenErrorMessage::Other(message.to_string()));
         Ok(Self {
             severity,
             category,
-            message: message.to_string(),
+            message,
         })
     }
 }

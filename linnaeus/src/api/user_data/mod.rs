@@ -17,3 +17,17 @@ pub async fn account_balances(
     )
         .await
 }
+
+pub async fn trade_balances(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &TradeBalancesParams
+) -> Result<TradeBalances, error::RequestError> {
+    do_request_with_body(
+        client,
+        "/0/private/TradeBalance",
+        http::Method::POST,
+        EndpointSecurityType::Private,
+        params
+    )
+        .await
+}

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Sha512, Digest};
 use strum::Display;
 use serde_with::{skip_serializing_none, serde_as};
+use crate::error::{KrakenErrorMessage, RequestError};
 
 #[derive(Serialize)]
 struct Empty {}
@@ -206,16 +207,8 @@ where
     O: DeserializeOwned,
 {
     if resp.status().is_success() {
-        let resp_body = resp.text().await?;
-        let resp: Response<O> = match serde_json::from_str(&resp_body) {
-            Ok(resp) => resp,
-            Err(err) => {
-                return Err(error::RequestError::DeserializationError(
-                    err,
-                    resp_body,
-                ))
-            }
-        };
+        trace!("Got success response for request to {}", resp.url());
+        let resp: Response<O> = resp.json().await?;
         match resp.result {
             Some(result) => Ok(result),
             None => {
