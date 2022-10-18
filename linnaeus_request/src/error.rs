@@ -131,7 +131,7 @@ impl TryFrom<&str> for KrakenError {
             Some(split) => split,
             None => {
                 return Err(RequestError::ParsingError(format!(
-                    "Expecting : as dividor. Input was {}",
+                    "Expecting : as divider. Input was {}",
                     value
                 )))
             }
