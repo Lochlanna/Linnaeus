@@ -208,7 +208,11 @@ where
 {
     if resp.status().is_success() {
         trace!("Got success response for request to {}", resp.url());
-        let resp: Response<O> = resp.json().await?;
+        let resp_bytes = resp.bytes().await?;
+        let resp: Response<O> = match serde_json::from_slice(&resp_bytes) {
+            Ok(resp) => resp,
+            Err(e) => return Err(error::RequestError::DeserializationError(e, String::from_utf8(resp_bytes.into()).unwrap_or("Non UTF-8 Json".into())))
+        };
         match resp.result {
             Some(result) => Ok(result),
             None => {
