@@ -13,7 +13,7 @@ use derive_new::new;
 use serde_with::formats::{CommaSeparator};
 use kraken_enums::{TradeablePair, Currency};
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct ServerTime {
     #[serde(rename = "unixtime")]
     unix_time: u64,
@@ -26,7 +26,7 @@ impl ServerTime {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
     // Kraken is operating normally. All order types may be submitted and trades can occur.
@@ -39,7 +39,7 @@ pub enum Status {
     PostOnly,
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct SystemStatus {
     status: Status,
     timestamp: chrono::DateTime<Utc>,
@@ -47,7 +47,7 @@ pub struct SystemStatus {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Clone)]
 pub struct AssetInfoParams {
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, Currency>")]
     asset: Vec<Currency>,
@@ -69,7 +69,7 @@ impl AssetInfoParams {
     }
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Asset {
     #[serde(rename = "aclass")]
     class: String,
@@ -81,7 +81,7 @@ pub struct Asset {
 
 pub type AssetInfo = HashMap<String, Asset>;
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum TradableAssetPairDetailLevel {
     //All info
@@ -102,7 +102,7 @@ impl Default for TradableAssetPairDetailLevel {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default, Clone)]
 pub struct TradableAssetPairsParams {
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, TradeablePair>")]
     #[serde(rename = "pair")]
@@ -126,14 +126,14 @@ impl TradableAssetPairsParams {
     }
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Fee {
     volume: Decimal,
     percent_fee: Decimal,
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct TradingAssetPair {
     #[serde(rename = "altname")]
     alt_name: String,
@@ -168,12 +168,12 @@ pub struct TradingAssetPair {
 pub type TradingAssetPairs = HashMap<String, TradingAssetPair>;
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new, Clone)]
 pub struct TickerInfoParams {
     pair: TradeablePair,
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Ask {
     price: Decimal,
     whole_lot_volume: Decimal,
@@ -182,13 +182,13 @@ pub struct Ask {
 
 pub type Bid = Ask;
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct LastTradeClosed {
     price: Decimal,
     lot_volume: Decimal,
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Volume {
     today: Decimal,
     last_24h: Decimal,
@@ -199,7 +199,7 @@ pub type Low = Volume;
 pub type High = Volume;
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct TickerInformation {
     #[serde(rename = "a")]
     ask: Ask,
@@ -223,7 +223,7 @@ pub struct TickerInformation {
 
 pub type MultiTickerInformation = HashMap<String, TickerInformation>;
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 pub enum Interval {
     #[serde(rename = "1")]
     OneMin,
@@ -262,7 +262,7 @@ impl From<Interval> for Duration {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default, Clone)]
 pub struct OHLCDataParams {
     pair: Option<TradeablePair>,
     interval: Option<Interval>,
@@ -286,7 +286,7 @@ impl OHLCDataParams {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct TickData {
     #[serde_as(as = "TimestampSeconds<i64>")]
     time: chrono::DateTime<Utc>,
@@ -300,7 +300,7 @@ pub struct TickData {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct OHLCData {
     last: i64,
     #[serde(flatten)]
@@ -308,7 +308,7 @@ pub struct OHLCData {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
 pub struct OrderBookParams {
     pair: TradeablePair,
     count: u16,
@@ -332,7 +332,7 @@ impl OrderBookParams {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct OrderBookAsk {
     price: Decimal,
     volume: Decimal,
@@ -343,7 +343,7 @@ pub struct OrderBookAsk {
 pub type OrderBookBid = OrderBookAsk;
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct OrderBook {
     asks: Vec<OrderBookAsk>,
     bids: Vec<OrderBookBid>,
@@ -353,7 +353,7 @@ pub type OrderBooks = HashMap<String, OrderBook>;
 
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Default, Clone)]
 pub struct RecentTradesParams {
     pair: Option<TradeablePair>,
     since: Option<u64>,
@@ -373,7 +373,7 @@ impl RecentTradesParams {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 pub enum Side {
     #[serde(rename = "b")]
     Buy,
@@ -381,7 +381,7 @@ pub enum Side {
     Sell,
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 pub enum TradeType {
     #[serde(rename = "m")]
     Market,
@@ -391,7 +391,7 @@ pub enum TradeType {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct TradeData {
     price: Decimal,
     volume: Decimal,
@@ -405,7 +405,7 @@ pub struct TradeData {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct RecentTrades {
     #[serde_as(as = "DisplayFromStr")]
     last: u64,
@@ -414,7 +414,7 @@ pub struct RecentTrades {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, new, Clone)]
 pub struct RecentSpreadsParams {
     pair: TradeablePair,
     since: Option<u64>,
@@ -422,7 +422,7 @@ pub struct RecentSpreadsParams {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct SpreadData {
     id: u64,
     buy: Decimal,
@@ -431,7 +431,7 @@ pub struct SpreadData {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct RecentSpreads {
     last: u64,
     #[serde(flatten)]

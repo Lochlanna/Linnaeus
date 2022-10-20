@@ -11,17 +11,19 @@ use serde_with::{
     TimestampSecondsWithFrac,
 };
 use std::collections::HashMap;
+use std::fmt::{Debug, Display};
 use strum::Display as EnumDisplay;
 use strum::EnumString;
+use thiserror::Error;
 
 pub type AccountBalances = HashMap<String, Decimal>;
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Clone)]
 pub struct TradeBalancesParams {
     asset: String,
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct TradeBalances {
     ///Equivalent balance (combined balance of all currencies)
     #[serde(rename = "eb")]
@@ -53,13 +55,13 @@ pub struct TradeBalances {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default, Clone)]
 pub struct OpenOrdersParams {
     trades: bool,
     userref: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderStatus {
     Pending,
@@ -69,7 +71,7 @@ pub enum OrderStatus {
     Expired,
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum Trigger {
     Last,
@@ -82,7 +84,7 @@ impl Default for Trigger {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum MiscInfo {
     #[strum(serialize = "stopped")]
@@ -95,14 +97,14 @@ pub enum MiscInfo {
     Partial,
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderSide {
     Buy,
     Sell,
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub enum OrderType {
     Market,
@@ -114,7 +116,7 @@ pub enum OrderType {
     SettlePosition,
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderFlags {
     ///post-only order (available when ordertype = limit)
@@ -136,7 +138,7 @@ pub enum OrderFlags {
 
 #[skip_serializing_none]
 #[serde_as]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct OrderDescription {
     pair: kraken_enums::TradeablePair,
     #[serde(rename = "type")]
@@ -154,8 +156,8 @@ pub struct OrderDescription {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
-pub struct Order {
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct OrderBase {
     #[serde(rename = "refid")]
     referral_order_transaction_id: Option<String>,
     status: OrderStatus,
@@ -192,12 +194,14 @@ pub struct Order {
     trades: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty)]
+pub type OpenOrder = OrderBase;
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
 pub struct OpenOrdersWrapper {
-    pub open: HashMap<String, Order>,
+    pub open: HashMap<String, OpenOrder>,
 }
 
-#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString)]
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum TimeType {
     Open,
@@ -212,7 +216,7 @@ impl Default for TimeType {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default, Clone)]
 pub struct ClosedOrdersParams {
     trades: bool,
     userref: Option<i32>,
@@ -226,17 +230,55 @@ pub struct ClosedOrdersParams {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct ClosedOrder {
     #[serde(flatten)]
-    order: Order,
+    order: OrderBase,
     #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
     close_time: chrono::DateTime<Utc>,
     reason: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct ClosedOrders {
-    closed: HashMap<String, Order>,
+    closed: HashMap<String, OrderBase>,
     count: usize,
 }
+
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default, Clone)]
+pub struct QueryOrderParams {
+    trades: bool,
+    userref: Option<i32>,
+    #[serde(rename = "txid")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    transaction_ids: Vec<String>,
+}
+
+#[derive(Debug, Default, Error)]
+#[error("Query Order Params can only have 50 transaction ID's at a time")]
+pub struct TooManyTransactionsError {}
+
+impl QueryOrderParams {
+    pub fn validate(&self) -> bool {
+        self.transaction_ids.len() < 50 && !self.transaction_ids.is_empty()
+    }
+    pub fn add_transaction(&mut self, id: String) -> Result<(), TooManyTransactionsError>{
+        if self.transaction_ids.len() == 50 {
+            return Err(TooManyTransactionsError::default())
+        }
+        self.transaction_ids.push(id);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
+#[serde(untagged)]
+pub enum Order {
+    Closed(ClosedOrder),
+    Open(OpenOrder)
+}
+
+pub type Orders = HashMap<String, Order>;
