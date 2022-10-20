@@ -30,3 +30,12 @@ async fn test_open_orders() -> Result<()> {
     info!("open_orders are {:?}", open_orders);
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_closed_orders() -> Result<()> {
+    let bin = setup();
+    let params = ClosedOrdersParams::default();
+    let open_orders = closed_orders(&bin, &params).await?;
+    info!("open_orders are {:?}", open_orders);
+    Ok(())
+}

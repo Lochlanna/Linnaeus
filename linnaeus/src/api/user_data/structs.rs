@@ -7,7 +7,8 @@ use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use rust_decimal::Decimal;
 use serde_with::formats::CommaSeparator;
 use serde_with::{
-    serde_as, skip_serializing_none, DefaultOnError, StringWithSeparator, TimestampSecondsWithFrac,
+    serde_as, skip_serializing_none, DefaultOnError, StringWithSeparator, TimestampSeconds,
+    TimestampSecondsWithFrac,
 };
 use std::collections::HashMap;
 use strum::Display as EnumDisplay;
@@ -54,7 +55,7 @@ pub struct TradeBalances {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default)]
 pub struct OpenOrdersParams {
-    trades: Option<bool>,
+    trades: bool,
     userref: Option<i32>,
 }
 
@@ -154,7 +155,7 @@ pub struct OrderDescription {
 
 #[serde_as]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
-pub struct OpenOrder {
+pub struct Order {
     #[serde(rename = "refid")]
     referral_order_transaction_id: Option<String>,
     status: OrderStatus,
@@ -193,5 +194,49 @@ pub struct OpenOrder {
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty)]
 pub struct OpenOrdersWrapper {
-    pub open: HashMap<String, OpenOrder>,
+    pub open: HashMap<String, Order>,
+}
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString)]
+#[serde(rename_all = "snake_case")]
+pub enum TimeType {
+    Open,
+    Close,
+    Both,
+}
+impl Default for TimeType {
+    fn default() -> Self {
+        Self::Both
+    }
+}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default)]
+pub struct ClosedOrdersParams {
+    trades: bool,
+    userref: Option<i32>,
+    #[serde_as(as = "Option<TimestampSeconds<i64>>")]
+    start: Option<chrono::DateTime<Utc>>,
+    #[serde_as(as = "Option<TimestampSeconds<i64>>")]
+    end: Option<chrono::DateTime<Utc>>,
+    offset: Option<usize>,
+    #[serde(rename = "closetime")]
+    close_time: TimeType,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct ClosedOrder {
+    #[serde(flatten)]
+    order: Order,
+    #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
+    close_time: chrono::DateTime<Utc>,
+    reason: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters)]
+pub struct ClosedOrders {
+    closed: HashMap<String, Order>,
+    count: usize,
 }

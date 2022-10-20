@@ -37,7 +37,7 @@ pub async fn trade_balances(
 pub async fn open_orders(
     client: &(impl RequestClient + RequestHelpers),
     params: &OpenOrdersParams,
-) -> Result<HashMap<String, OpenOrder>, error::RequestError> {
+) -> Result<HashMap<String, Order>, error::RequestError> {
     let wrapper: OpenOrdersWrapper = do_request_with_body(
         client,
         "/0/private/OpenOrders",
@@ -47,4 +47,18 @@ pub async fn open_orders(
     )
     .await?;
     Ok(wrapper.open)
+}
+
+pub async fn closed_orders(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &ClosedOrdersParams,
+) -> Result<ClosedOrders, error::RequestError> {
+    do_request_with_body(
+        client,
+        "/0/private/ClosedOrders",
+        http::Method::POST,
+        EndpointSecurityType::Private,
+        params,
+    )
+        .await
 }
