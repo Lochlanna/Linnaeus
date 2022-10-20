@@ -435,3 +435,78 @@ impl QueryTradeInfoParams {
 }
 
 pub type TradeInfo = HashMap<String, Trade>;
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum ConsolidationType {
+    Market,
+}
+impl Default for ConsolidationType {
+    fn default() -> Self {
+        ConsolidationType::Market
+    }
+}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Clone)]
+pub struct OpenPositionParams {
+    #[serde(rename = "txid")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    transaction_ids: Vec<String>,
+    #[serde(rename = "docalcs")]
+    do_profit_loss_calcualtions: bool,
+    consolidation: Option<ConsolidationType>,
+}
+
+impl Default for OpenPositionParams {
+    fn default() -> Self {
+        Self {
+            transaction_ids: Default::default(),
+            do_profit_loss_calcualtions: Default::default(),
+            consolidation: Some(ConsolidationType::default()),
+        }
+    }
+}
+
+impl OpenPositionParams {
+    pub fn add_transaction(&mut self, txn_id: &str) {
+        self.transaction_ids.push(txn_id.to_string());
+    }
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct OpenPosition {
+    #[serde(rename = "ordertxid")]
+    order_id: String,
+    pair: kraken_enums::TradeablePair,
+    #[serde(rename = "posstatus")]
+    position_status: Option<PositionStatus>,
+    #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
+    time: chrono::DateTime<Utc>,
+    #[serde(rename = "type")]
+    side: Side,
+    cost: Decimal,
+    fee: Decimal,
+    #[serde(rename = "vol")]
+    volume: Decimal,
+    #[serde(rename = "vol_closed")]
+    volume_closed: Decimal,
+    margin: Decimal,
+    value: Option<Decimal>,
+    net: Option<Decimal>,
+    terms: String,
+    #[serde(rename = "rollovertm")]
+    #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
+    rollover_time: chrono::DateTime<Utc>,
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    #[serde(default)]
+    misc: Vec<String>,
+    #[serde(rename = "oflags")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    #[serde(default)]
+    order_flags: Vec<String>,
+}
+
+pub type OpenPositions = HashMap<String, OpenPosition>;

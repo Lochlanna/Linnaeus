@@ -104,3 +104,17 @@ pub async fn query_trade_info(
     )
     .await
 }
+
+pub async fn open_positions(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &OpenPositionParams,
+) -> Result<OpenPositions, error::RequestError> {
+    do_request_with_body(
+        client,
+        "/0/private/OpenPositions",
+        http::Method::POST,
+        EndpointSecurityType::Private,
+        params,
+    )
+    .await
+}

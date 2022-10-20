@@ -117,3 +117,12 @@ async fn test_trade_info() -> Result<()> {
     info!("trade info is {:?}", trade_info);
     Ok(())
 }
+
+#[tokio::test]
+async fn test_open_positions() -> Result<()> {
+    let bin = setup();
+    let params = OpenPositionParams::default();
+    let trade_history = open_positions(&bin, &params).await?;
+    info!("open positions are are {:?}", trade_history);
+    Ok(())
+}
