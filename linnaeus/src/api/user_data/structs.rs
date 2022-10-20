@@ -55,7 +55,9 @@ pub struct TradeBalances {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default, Clone)]
+#[derive(
+    Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default, Clone,
+)]
 pub struct OpenOrdersParams {
     trades: bool,
     userref: Option<i32>,
@@ -86,7 +88,7 @@ impl Default for Trigger {
 
 #[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString, Clone)]
 #[serde(rename_all = "snake_case")]
-pub enum MiscInfo {
+pub enum OrderMiscInfo {
     #[strum(serialize = "stopped")]
     Stopped,
     #[strum(serialize = "touched")]
@@ -99,7 +101,7 @@ pub enum MiscInfo {
 
 #[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
 #[serde(rename_all = "snake_case")]
-pub enum OrderSide {
+pub enum Side {
     Buy,
     Sell,
 }
@@ -142,7 +144,7 @@ pub enum OrderFlags {
 pub struct OrderDescription {
     pair: kraken_enums::TradeablePair,
     #[serde(rename = "type")]
-    side: OrderSide,
+    side: Side,
     order_type: Option<OrderType>,
     price: Decimal,
     #[serde(rename = "price2")]
@@ -185,8 +187,8 @@ pub struct OrderBase {
     limit_price: Decimal,
     #[serde(default)]
     trigger: Trigger,
-    #[serde_as(as = "StringWithSeparator::<CommaSeparator, MiscInfo>")]
-    misc: Vec<MiscInfo>,
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, OrderMiscInfo>")]
+    misc: Vec<OrderMiscInfo>,
     #[serde(rename = "oflags")]
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, OrderFlags>")]
     order_flags: Vec<OrderFlags>,
@@ -216,7 +218,9 @@ impl Default for TimeType {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default, Clone)]
+#[derive(
+    Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, new, Default, Clone,
+)]
 pub struct ClosedOrdersParams {
     trades: bool,
     userref: Option<i32>,
@@ -245,7 +249,6 @@ pub struct ClosedOrders {
     count: usize,
 }
 
-
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default, Clone)]
@@ -265,9 +268,9 @@ impl QueryOrderParams {
     pub fn validate(&self) -> bool {
         self.transaction_ids.len() < 50 && !self.transaction_ids.is_empty()
     }
-    pub fn add_transaction(&mut self, id: String) -> Result<(), TooManyTransactionsError>{
+    pub fn add_transaction(&mut self, id: String) -> Result<(), TooManyTransactionsError> {
         if self.transaction_ids.len() == 50 {
-            return Err(TooManyTransactionsError::default())
+            return Err(TooManyTransactionsError::default());
         }
         self.transaction_ids.push(id);
         Ok(())
@@ -278,7 +281,108 @@ impl QueryOrderParams {
 #[serde(untagged)]
 pub enum Order {
     Closed(ClosedOrder),
-    Open(OpenOrder)
+    Open(OpenOrder),
 }
 
 pub type Orders = HashMap<String, Order>;
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
+pub enum TradeType {
+    #[serde(rename = "all")]
+    #[strum(serialize = "all")]
+    All,
+    #[serde(rename = "any position")]
+    #[strum(serialize = "any position")]
+    AnyPosition,
+    #[serde(rename = "closed position")]
+    #[strum(serialize = "closed position")]
+    ClosedPosition,
+    #[serde(rename = "closing position")]
+    #[strum(serialize = "closing position")]
+    ClosingPosition,
+    #[serde(rename = "no position")]
+    #[strum(serialize = "no position")]
+    NoPosition,
+}
+
+impl Default for TradeType {
+    fn default() -> Self {
+        Self::All
+    }
+}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(
+    Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default, Clone, new,
+)]
+pub struct TradeHistoryParams {
+    #[serde(rename = "type")]
+    trade_type: TradeType,
+    trades: bool,
+    #[serde_as(as = "Option<TimestampSeconds<i64>>")]
+    start: Option<chrono::DateTime<Utc>>,
+    #[serde_as(as = "Option<TimestampSeconds<i64>>")]
+    end: Option<chrono::DateTime<Utc>>,
+    #[serde(rename = "ofs")]
+    offset: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum TradeMiscInfo {
+    #[strum(serialize = "closing")]
+    Closing,
+}
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, EnumString, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum PositionStatus {
+    Open,
+    Closed,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct Trade {
+    #[serde(rename = "ordertxid")]
+    order_transaction_id: String,
+    pair: kraken_enums::TradeablePair,
+    #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
+    time: chrono::DateTime<Utc>,
+    #[serde(rename = "type")]
+    side: Side,
+    #[serde(rename = "ordertype")]
+    order_type: OrderType,
+    price: Decimal,
+    cost: Decimal,
+    fee: Decimal,
+    #[serde(rename = "vol")]
+    volume: Decimal,
+    margin: Decimal,
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, TradeMiscInfo>")]
+    #[serde(default)]
+    misc: Vec<TradeMiscInfo>,
+    #[serde(rename = "posstatus")]
+    position_status: Option<PositionStatus>,
+    #[serde(rename = "cprice")]
+    close_price: Option<Decimal>,
+    #[serde(rename = "ccost")]
+    close_cost: Option<Decimal>,
+    #[serde(rename = "cfee")]
+    close_fee: Option<Decimal>,
+    #[serde(rename = "cvol")]
+    close_volume: Option<Decimal>,
+    #[serde(rename = "cmargin")]
+    close_margin: Option<Decimal>,
+    net: Option<Decimal>,
+    #[serde(default)]
+    trades: Vec<String>,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct TradeHistory {
+    trades: HashMap<String, Trade>,
+    count: usize,
+}

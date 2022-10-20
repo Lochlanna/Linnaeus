@@ -3,7 +3,7 @@ use crate::test_helpers::*;
 use anyhow::Result;
 use log::info;
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_account_balances() -> Result<()> {
     let bin = setup();
     let ab = account_balances(&bin).await?;
@@ -13,7 +13,7 @@ async fn test_account_balances() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_trade_balances() -> Result<()> {
     let bin = setup();
     let params = TradeBalancesParams::new("ZAUD".into());
@@ -22,7 +22,7 @@ async fn test_trade_balances() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_open_orders() -> Result<()> {
     let bin = setup();
     let params = OpenOrdersParams::default();
@@ -31,7 +31,7 @@ async fn test_open_orders() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_closed_orders() -> Result<()> {
     let bin = setup();
     let params = ClosedOrdersParams::default();
@@ -40,7 +40,7 @@ async fn test_closed_orders() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_query_orders() -> Result<()> {
     let bin = setup();
     let open_orders = open_orders(&bin, &OpenOrdersParams::default()).await?;
@@ -89,5 +89,14 @@ async fn test_query_orders() -> Result<()> {
     let queried_orders = query_orders(&bin, &params).await?;
     info!("orders are {:?}", queried_orders);
     assert_eq!(queried_orders.len(), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_trade_history() -> Result<()> {
+    let bin = setup();
+    let params = TradeHistoryParams::default();
+    let open_orders = trade_history(&bin, &params).await?;
+    info!("trade history is  are {:?}", open_orders);
     Ok(())
 }

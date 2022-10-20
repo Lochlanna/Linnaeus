@@ -60,7 +60,7 @@ pub async fn closed_orders(
         EndpointSecurityType::Private,
         params,
     )
-        .await
+    .await
 }
 
 pub async fn query_orders(
@@ -74,5 +74,19 @@ pub async fn query_orders(
         EndpointSecurityType::Private,
         params,
     )
-        .await
+    .await
+}
+
+pub async fn trade_history(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &TradeHistoryParams,
+) -> Result<TradeHistory, error::RequestError> {
+    do_request_with_body(
+        client,
+        "/0/private/TradesHistory",
+        http::Method::POST,
+        EndpointSecurityType::Private,
+        params,
+    )
+    .await
 }
