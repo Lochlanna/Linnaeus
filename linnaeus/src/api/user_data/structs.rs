@@ -260,20 +260,42 @@ pub struct QueryOrderParams {
     transaction_ids: Vec<String>,
 }
 
-#[derive(Debug, Default, Error)]
-#[error("Query Order Params can only have 50 transaction ID's at a time")]
-pub struct TooManyTransactionsError {}
+#[derive(Debug, Error)]
+#[error("{name} can only have {num} transaction ID's at a time")]
+pub struct TooManyTransactionsError {
+    name: String,
+    num: usize,
+}
+impl TooManyTransactionsError {
+    pub fn new(name: &str, num: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            num,
+        }
+    }
+}
 
 impl QueryOrderParams {
     pub fn validate(&self) -> bool {
         self.transaction_ids.len() < 50 && !self.transaction_ids.is_empty()
     }
     pub fn add_transaction(&mut self, id: String) -> Result<(), TooManyTransactionsError> {
-        if self.transaction_ids.len() == 50 {
-            return Err(TooManyTransactionsError::default());
+        const MAX_NUM_TRANSACTIONS: usize = 50;
+        if self.transaction_ids.len() == MAX_NUM_TRANSACTIONS {
+            return Err(TooManyTransactionsError::new(
+                "query order params",
+                MAX_NUM_TRANSACTIONS,
+            ));
         }
         self.transaction_ids.push(id);
         Ok(())
+    }
+    pub fn with_transactions(transaction_ids: Vec<String>) -> Self {
+        Self {
+            trades: false,
+            userref: None,
+            transaction_ids,
+        }
     }
 }
 
@@ -346,7 +368,7 @@ pub enum PositionStatus {
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Trade {
     #[serde(rename = "ordertxid")]
-    order_transaction_id: String,
+    order_id: String,
     pair: kraken_enums::TradeablePair,
     #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
     time: chrono::DateTime<Utc>,
@@ -380,9 +402,36 @@ pub struct Trade {
     trades: Vec<String>,
 }
 
-#[serde_as]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct TradeHistory {
     trades: HashMap<String, Trade>,
     count: usize,
 }
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(
+    Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Default, Clone, new,
+)]
+pub struct QueryTradeInfoParams {
+    #[serde(rename = "txid")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    transaction_ids: Vec<String>,
+    trades: bool,
+}
+
+impl QueryTradeInfoParams {
+    pub fn add_transaction(&mut self, txn_id: &str) -> Result<(), TooManyTransactionsError> {
+        const MAX_NUM_TRANSACTIONS: usize = 20;
+        if self.transaction_ids.len() == MAX_NUM_TRANSACTIONS {
+            return Err(TooManyTransactionsError::new(
+                "query trade info",
+                MAX_NUM_TRANSACTIONS,
+            ));
+        }
+        self.transaction_ids.push(txn_id.to_string());
+        Ok(())
+    }
+}
+
+pub type TradeInfo = HashMap<String, Trade>;

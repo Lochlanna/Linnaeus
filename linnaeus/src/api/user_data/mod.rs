@@ -90,3 +90,17 @@ pub async fn trade_history(
     )
     .await
 }
+
+pub async fn query_trade_info(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &QueryTradeInfoParams,
+) -> Result<TradeInfo, error::RequestError> {
+    do_request_with_body(
+        client,
+        "/0/private/QueryTrades",
+        http::Method::POST,
+        EndpointSecurityType::Private,
+        params,
+    )
+    .await
+}

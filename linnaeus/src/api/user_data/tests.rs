@@ -96,7 +96,24 @@ async fn test_query_orders() -> Result<()> {
 async fn test_trade_history() -> Result<()> {
     let bin = setup();
     let params = TradeHistoryParams::default();
-    let open_orders = trade_history(&bin, &params).await?;
-    info!("trade history is  are {:?}", open_orders);
+    let trade_history = trade_history(&bin, &params).await?;
+    info!("trade history is  are {:?}", trade_history);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_trade_info() -> Result<()> {
+    let bin = setup();
+    let trade_history = trade_history(&bin, &TradeHistoryParams::default()).await?;
+    let mut params = QueryTradeInfoParams::default();
+    params.add_transaction(
+        trade_history
+            .trades()
+            .keys()
+            .next()
+            .expect("There was no trades!"),
+    )?;
+    let trade_info = query_trade_info(&bin, &params).await?;
+    info!("trade info is {:?}", trade_info);
     Ok(())
 }
