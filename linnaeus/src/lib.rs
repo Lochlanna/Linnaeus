@@ -3,30 +3,30 @@ pub mod api;
 mod test_helpers;
 
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
+use linnaeus_request::KrakenKeyPair;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use thiserror::Error;
+
+static KEY_ROTATION_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(DebugAsJson, DisplayAsJsonPretty, Serialize, Deserialize)]
 pub struct Linnaeus {
     #[serde(skip)]
     client: Client,
-    api_key: String,
-    api_private_key: String,
+    keys: Vec<KrakenKeyPair>,
     base_url: String,
     ws_url: String,
 }
 
 impl Linnaeus {
-    pub fn new(
-        api_key: &str,
-        api_private_key: &str,
-        base_url: &str,
-        ws_url: &str,
-    ) -> Self {
+    pub fn new(keys: Vec<KrakenKeyPair>, base_url: &str, ws_url: &str) -> Self {
+        //TODO check that keys isn't empty
         Self {
             client: Client::new(),
-            api_key: String::from(api_key),
-            api_private_key: String::from(api_private_key),
+            keys,
             base_url: String::from(base_url),
             ws_url: String::from(ws_url),
         }
@@ -38,12 +38,13 @@ impl linnaeus_request::RequestClient for Linnaeus {
         &self.client
     }
 
-    fn get_api_key(&self) -> &str {
-        &self.api_key
-    }
-
-    fn get_api_private_key(&self) -> &str {
-        &self.api_private_key
+    fn get_keys(&self) -> &KrakenKeyPair {
+        let index = KEY_ROTATION_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let key = self
+            .keys
+            .get(index % self.keys.len())
+            .expect("key list changed. This shouldn't be possible");
+        key
     }
 
     fn get_base_url(&self) -> &str {

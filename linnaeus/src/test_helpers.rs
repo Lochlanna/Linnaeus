@@ -7,8 +7,7 @@ use simple_logger::SimpleLogger;
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    api_key: String,
-    api_private_key: String,
+    keys: Vec<(String, String)>,
     base_url: String,
     ws_url: String,
 }
@@ -23,11 +22,11 @@ impl AppConfig {
         let app: AppConfig = config.build().unwrap().try_deserialize().unwrap();
         app
     }
-    pub fn api_key(&self) -> &str {
-        &self.api_key
-    }
-    pub fn api_private_key(&self) -> &str {
-        &self.api_private_key
+    pub fn keys(&self) -> Vec<KrakenKeyPair> {
+        self.keys
+            .iter()
+            .map(|(api_key, private_key)| KrakenKeyPair::new(api_key, private_key))
+            .collect()
     }
     pub fn base_url(&self) -> &str {
         &self.base_url
@@ -37,6 +36,7 @@ impl AppConfig {
     }
 }
 
+use linnaeus_request::KrakenKeyPair;
 use std::sync::Once;
 
 static INIT: Once = Once::new();
@@ -52,11 +52,6 @@ pub fn setup() -> Linnaeus {
             .unwrap();
     });
     let cfg = AppConfig::load(&[(CONFIG_FILE, false), (SECRET_FILE, false)]);
-    let bin = Linnaeus::new(
-        cfg.api_key(),
-        cfg.api_private_key(),
-        cfg.base_url(),
-        cfg.ws_url()
-    );
+    let bin = Linnaeus::new(cfg.keys(), cfg.base_url(), cfg.ws_url());
     bin
 }
