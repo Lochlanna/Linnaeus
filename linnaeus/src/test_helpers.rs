@@ -1,5 +1,7 @@
 // This module contain functions that are useful to setup the environment ready for testing
 
+use std::io;
+use std::io::Write;
 use super::Linnaeus;
 use config::Config;
 use serde::Deserialize;
@@ -10,6 +12,32 @@ pub struct AppConfig {
     keys: Vec<(String, String)>,
     base_url: String,
     ws_url: String,
+}
+
+pub trait LogErr {
+    fn trace(self) -> Self;
+    fn error(self) -> Self;
+}
+
+impl<A,B> LogErr for Result<A,B> where B: std::error::Error{
+    fn trace(self) -> Self {
+        match &self {
+            Err(e) => {
+                trace!("Error -> {}", e);
+            }
+            _ => {}
+        }
+        self
+    }
+    fn error(self) -> Self {
+        match &self {
+            Err(e) => {
+                error!("Error -> {}", e);
+            }
+            _ => {}
+        }
+        self
+    }
 }
 
 impl AppConfig {
@@ -38,6 +66,7 @@ impl AppConfig {
 
 use linnaeus_request::KrakenKeyPair;
 use std::sync::Once;
+use log::{error, trace};
 
 static INIT: Once = Once::new();
 const CONFIG_FILE: &str = "../TestConfig.toml";
