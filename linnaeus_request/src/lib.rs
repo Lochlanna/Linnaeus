@@ -185,7 +185,11 @@ pub trait RequestHelpers: RequestClient {
                 nonce: self.get_next_nonce(),
             };
             let signature = self.generate_signature(&payload_with_nonce, path, keys.private())?;
-            trace!("request signature is {}", signature);
+            trace!(
+                "request signature is {} with nonce {}",
+                signature,
+                payload_with_nonce.nonce
+            );
             req = req
                 .header("API-Key", keys.api())
                 .header("API-Sign", signature)

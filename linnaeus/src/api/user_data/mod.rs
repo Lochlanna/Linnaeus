@@ -118,3 +118,31 @@ pub async fn open_positions(
     )
     .await
 }
+
+pub async fn get_ledger_info(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &LedgerInfoParams,
+) -> Result<LedgerInfo, error::RequestError> {
+    do_request_with_body(
+        client,
+        "/0/private/Ledgers",
+        http::Method::POST,
+        EndpointSecurityType::Private,
+        params,
+    )
+    .await
+}
+
+pub async fn query_ledger(
+    client: &(impl RequestClient + RequestHelpers),
+    params: &QueryLedgerParams,
+) -> Result<Ledgers, error::RequestError> {
+    do_request_with_body(
+        client,
+        "/0/private/QueryLedgers",
+        http::Method::POST,
+        EndpointSecurityType::Private,
+        params,
+    )
+    .await
+}

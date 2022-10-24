@@ -4,11 +4,32 @@ mod tradeable_pairs;
 
 pub use tradeable_pairs::*;
 
-use serde::{Serialize, Deserialize};
-use strum::{IntoStaticStr, EnumString};
+use serde::{Deserialize, Serialize};
 use strum::Display as StrumDisplay;
+use strum::{EnumString, IntoStaticStr};
 
-#[derive(Debug, Serialize, Deserialize, EnumString, IntoStaticStr, Clone, StrumDisplay, PartialEq, Eq)]
+#[derive(
+    Debug, Serialize, Deserialize, EnumString, IntoStaticStr, Clone, StrumDisplay, PartialEq, Eq,
+)]
+pub enum CurrencyType {
+    #[serde(rename = "cash")]
+    Cash,
+    #[serde(rename = "crypto")]
+    Crypto,
+}
+
+impl From<Currency> for CurrencyType {
+    fn from(c: Currency) -> Self {
+        if c.is_crypto() {
+            return Self::Crypto;
+        }
+        Self::Cash
+    }
+}
+
+#[derive(
+    Debug, Serialize, Deserialize, EnumString, IntoStaticStr, Clone, StrumDisplay, PartialEq, Eq,
+)]
 pub enum Currency {
     USD,
     EUR,
@@ -18,7 +39,6 @@ pub enum Currency {
     CHF,
     JPY,
     AED,
-
 
     ZRX,
     //1inch
@@ -462,10 +482,19 @@ impl Currency {
     }
 
     pub fn is_cash(&self) -> bool {
-        matches!(self, Currency::USD | Currency::EUR | Currency::CAD | Currency::AUD | Currency::GBP | Currency::CHF | Currency::JPY | Currency::AED)
+        matches!(
+            self,
+            Currency::USD
+                | Currency::EUR
+                | Currency::CAD
+                | Currency::AUD
+                | Currency::GBP
+                | Currency::CHF
+                | Currency::JPY
+                | Currency::AED
+        )
     }
     pub fn is_crypto(&self) -> bool {
         !self.is_cash()
     }
 }
-

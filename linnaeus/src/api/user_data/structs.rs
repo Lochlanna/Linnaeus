@@ -510,3 +510,103 @@ pub struct OpenPosition {
 }
 
 pub type OpenPositions = HashMap<String, OpenPosition>;
+
+#[derive(Debug, Serialize, Deserialize, EnumDisplay, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum LedgerType {
+    All,
+    Deposit,
+    Withdrawal,
+    Trade,
+    Margin,
+    Rollover,
+    Credit,
+    Transfer,
+    Settled,
+    Staking,
+    Sale,
+    Spend,
+    Receive,
+    Adjustment,
+}
+
+impl Default for LedgerType {
+    fn default() -> Self {
+        Self::All
+    }
+}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Clone)]
+pub struct LedgerInfoParams {
+    #[serde(rename = "asset")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, kraken_enums::Currency>")]
+    assets: Vec<kraken_enums::Currency>,
+    #[serde(rename = "aclass")]
+    class: String,
+    #[serde(rename = "type")]
+    ledger_type: LedgerType,
+    #[serde_as(as = "Option<TimestampSeconds<i64>>")]
+    start: Option<chrono::DateTime<Utc>>,
+    #[serde_as(as = "Option<TimestampSeconds<i64>>")]
+    end: Option<chrono::DateTime<Utc>>,
+    #[serde(rename = "ofs")]
+    offset: usize,
+}
+
+impl Default for LedgerInfoParams {
+    fn default() -> Self {
+        Self {
+            assets: vec![],
+            class: "currency".into(),
+            ledger_type: Default::default(),
+            start: None,
+            end: None,
+            offset: 0,
+        }
+    }
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct Ledger {
+    #[serde(rename = "refid")]
+    reference_id: String,
+    #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
+    open_time: chrono::DateTime<Utc>,
+    #[serde(rename = "type")]
+    ledger_type: LedgerType,
+    sub_type: String,
+    #[serde(rename = "aclass")]
+    class: kraken_enums::CurrencyType,
+    asset: kraken_enums::Currency,
+    amount: Decimal,
+    fee: Decimal,
+    balance: Decimal,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct LedgerInfo {
+    ledger: HashMap<String, Ledger>,
+    count: usize,
+}
+
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Clone, Default)]
+pub struct QueryLedgerParams {
+    #[serde(rename = "id")]
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    ledger_ids: Vec<String>,
+    trades: bool,
+}
+
+impl QueryLedgerParams {
+    pub fn add_ledger_id(&mut self, ledger_id: &str) {
+        self.ledger_ids.push(ledger_id.to_string());
+    }
+}
+
+pub type Ledgers = HashMap<String, Ledger>;
