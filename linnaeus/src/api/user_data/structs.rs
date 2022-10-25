@@ -142,7 +142,7 @@ pub enum OrderFlags {
 #[serde_as]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct OrderDescription {
-    pair: kraken_enums::TradeablePair,
+    pair: String,
     #[serde(rename = "type")]
     side: Side,
     order_type: Option<OrderType>,
@@ -369,7 +369,7 @@ pub enum PositionStatus {
 pub struct Trade {
     #[serde(rename = "ordertxid")]
     order_id: String,
-    pair: kraken_enums::TradeablePair,
+    pair: String,
     #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
     time: chrono::DateTime<Utc>,
     #[serde(rename = "type")]
@@ -480,7 +480,7 @@ impl OpenPositionParams {
 pub struct OpenPosition {
     #[serde(rename = "ordertxid")]
     order_id: String,
-    pair: kraken_enums::TradeablePair,
+    pair: String,
     #[serde(rename = "posstatus")]
     position_status: Option<PositionStatus>,
     #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
@@ -541,8 +541,8 @@ impl Default for LedgerType {
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Setters, Clone)]
 pub struct LedgerInfoParams {
     #[serde(rename = "asset")]
-    #[serde_as(as = "StringWithSeparator::<CommaSeparator, kraken_enums::Currency>")]
-    assets: Vec<kraken_enums::Currency>,
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    assets: Vec<String>,
     #[serde(rename = "aclass")]
     class: String,
     #[serde(rename = "type")]
@@ -567,6 +567,11 @@ impl Default for LedgerInfoParams {
         }
     }
 }
+impl LedgerInfoParams {
+    pub fn add_asset(&mut self, asset: &str) {
+        self.assets.push(asset.to_string());
+    }
+}
 
 #[serde_as]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
@@ -574,13 +579,14 @@ pub struct Ledger {
     #[serde(rename = "refid")]
     reference_id: String,
     #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
-    open_time: chrono::DateTime<Utc>,
+    time: chrono::DateTime<Utc>,
     #[serde(rename = "type")]
     ledger_type: LedgerType,
+    #[serde(rename = "subtype")]
     sub_type: String,
     #[serde(rename = "aclass")]
-    class: kraken_enums::CurrencyType,
-    asset: kraken_enums::Currency,
+    class: String,
+    asset: String,
     amount: Decimal,
     fee: Decimal,
     balance: Decimal,

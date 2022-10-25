@@ -30,7 +30,6 @@ http = "0.2"
 
 linnaeus_request = { path = "../linnaeus_request" }
 linnaeus_ws = { path = "../linnaeus_ws" }
-kraken_enums = { path = "../kraken_enums" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

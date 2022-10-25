@@ -4,5 +4,4 @@ members = [
     "linnaeus",
     "linnaeus_request",
     "linnaeus_ws",
-    "kraken_enums",
 ]

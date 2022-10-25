@@ -140,7 +140,8 @@ async fn test_open_positions() -> Result<()> {
 #[tokio::test]
 async fn test_ledger_info() -> Result<()> {
     let bin = setup();
-    let params = LedgerInfoParams::default();
+    let mut params = LedgerInfoParams::default();
+    params.add_asset("BTC");
     let ledger_info = get_ledger_info(&bin, &params).await.error()?;
     info!("ledger info is {:?}", ledger_info);
     Ok(())
@@ -149,7 +150,8 @@ async fn test_ledger_info() -> Result<()> {
 #[tokio::test]
 async fn test_query_ledger_info() -> Result<()> {
     let bin = setup();
-    let params = LedgerInfoParams::default();
+    let mut params = LedgerInfoParams::default();
+    params.add_asset("BTC");
     let ledger_info = get_ledger_info(&bin, &params).await.error()?;
 
     let mut params = QueryLedgerParams::default();
