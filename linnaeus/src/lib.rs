@@ -1,6 +1,7 @@
 pub mod api;
 #[cfg(test)]
 mod test_helpers;
+pub mod websocket;
 
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use linnaeus_request::KrakenKeyPair;
