@@ -6,7 +6,7 @@ use linnaeus_request::{
 };
 use serde::{Deserialize, Serialize};
 
-use serde_with::{serde_as, DurationSeconds};
+use serde_with::serde_as;
 
 pub mod market_data;
 pub mod user_data;

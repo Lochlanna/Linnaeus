@@ -7,9 +7,7 @@ use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use linnaeus_request::KrakenKeyPair;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use thiserror::Error;
 
 static KEY_ROTATION_COUNTER: AtomicUsize = AtomicUsize::new(0);
 

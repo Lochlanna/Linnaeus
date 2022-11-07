@@ -1,4 +1,3 @@
-mod Error;
 mod general_messages;
 mod public_messages;
 

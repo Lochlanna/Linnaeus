@@ -3,7 +3,6 @@ use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::skip_serializing_none;
-use strum::Display as EnumDisplay;
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Ping {
@@ -17,8 +16,8 @@ pub struct Pong {
     request_id: i64,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum SystemStatusCode {
     Online,
     Maintenance,
@@ -27,8 +26,8 @@ pub enum SystemStatusCode {
     PostOnly,
 }
 
-#[serde(rename_all = "camelCase")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SystemStatus {
     connection_id: i64,
     status: SystemStatusCode,
@@ -72,8 +71,8 @@ pub enum Depth {
 }
 
 #[skip_serializing_none]
-#[serde(rename_all = "camelCase")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SubscribeInfo {
     depth: Option<Depth>,
     interval: Option<Interval>,
@@ -83,18 +82,18 @@ pub struct SubscribeInfo {
     token: Option<String>,
 }
 
-#[serde(rename_all = "camelCase")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Subscribe {
     #[serde(rename = "reqid")]
     request_id: i64,
     pair: Vec<String>, // TODO ISO 4217-A3 currency enum?
-    subscription: SubscriptionInfo,
+    subscription: SubscribeInfo,
 }
 
 #[skip_serializing_none]
-#[serde(rename_all = "camelCase")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UnSubscribeInfo {
     depth: Option<u16>,
     interval: Option<Interval>,
@@ -102,8 +101,8 @@ pub struct UnSubscribeInfo {
     token: Option<String>,
 }
 
-#[serde(rename_all = "camelCase")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UnSubscribe {
     #[serde(rename = "reqid")]
     request_id: i64,
@@ -118,8 +117,8 @@ pub enum Status {
 }
 
 #[skip_serializing_none]
-#[serde(rename_all = "camelCase")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Subscription {
     depth: Option<Depth>,
     interval: Option<Interval>,
@@ -128,8 +127,8 @@ pub struct Subscription {
     token: Option<String>,
 }
 
-#[serde(rename_all = "camelCase")]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SubscriptionStatus {
     channel_name: String,
     #[serde(rename = "reqid")]

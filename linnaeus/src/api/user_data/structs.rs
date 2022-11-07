@@ -11,7 +11,7 @@ use serde_with::{
     TimestampSecondsWithFrac,
 };
 use std::collections::HashMap;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use strum::Display as EnumDisplay;
 use strum::EnumString;
 use thiserror::Error;
