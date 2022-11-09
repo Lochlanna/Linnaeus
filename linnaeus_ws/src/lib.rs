@@ -3,6 +3,7 @@ use serde::de::Error as DeError;
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::Formatter;
+use std::str::FromStr;
 use strum::Display as DisplayEnum;
 
 mod general_messages;
@@ -32,51 +33,70 @@ pub enum Event {
 #[serde(rename_all = "camelCase")]
 pub enum Channel {
     Ticker,
-    #[serde(rename = "ohlc-1")]
-    OHLCOneMin,
-    #[serde(rename = "ohlc-5")]
-    OHLCFiveMin,
-    #[serde(rename = "ohlc-15")]
-    OHLCFifteenMin,
-    #[serde(rename = "ohlc-30")]
-    OHLCThirtyMin,
-    #[serde(rename = "ohlc-60")]
-    OHLCOneHour,
-    #[serde(rename = "ohlc-240")]
-    OHLCFourHour,
-    #[serde(rename = "ohlc-1440")]
-    OHLCOneDay,
-    #[serde(rename = "ohlc-10080")]
-    OHLCOneWeek,
-    #[serde(rename = "ohlc-21600")]
-    OHLCFifteenDay,
+    OHLC(general_messages::Interval),
+    Trade,
+    Spread,
+    Book(general_messages::Depth)
+}
+
+impl FromStr for Channel {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Err("input empty")
+        }
+        let mut split = s.splitn(2, '-');
+        let Some(name) = split.next() else {
+            return Err("no valid strings")
+        };
+
+        match name {
+            "ticker" => return Ok(Channel::Ticker),
+            "trade" => return Ok(Channel::Trade),
+            "spread" => return Ok(Channel::Spread),
+            _ => {}
+        }
+
+        let Some(value) = split.next() else {
+            return Err("unknown channel")
+        };
+
+        match name {
+            "ohlc" => {
+                let Ok(interval) = serde_json::from_str::<general_messages::Interval>(value) else {
+                    return Err("invalid value for ohlc interval")
+                };
+                Ok(Channel::OHLC(interval))
+            }
+            "book" => {
+                let Ok(depth) = serde_json::from_str::<general_messages::Depth>(value) else {
+                    return Err("invalid value for book depth")
+                };
+                Ok(Channel::Book(depth))
+            }
+            _ => Err("unknown channel")
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ChannelMessage {
     Ticker(public_messages::Ticker),
     OHLC(public_messages::OHLC),
+    Trade(public_messages::Trades),
+    Spread(public_messages::Spreads),
+    Book(public_messages::Book)
 }
 
 impl ChannelMessage {
     fn new(channel: &Channel, data: serde_json::Value) -> Result<ChannelMessage, serde_json::Error> {
         let channel_message = match channel {
-            Channel::Ticker => {
-                let ticker: public_messages::Ticker = serde_json::from_value(data)?;
-                ChannelMessage::Ticker(ticker)
-            }
-            Channel::OHLCOneMin |
-            Channel::OHLCFiveMin |
-            Channel::OHLCFifteenMin |
-            Channel::OHLCThirtyMin |
-            Channel::OHLCOneHour |
-            Channel::OHLCFourHour |
-            Channel::OHLCOneDay |
-            Channel::OHLCOneWeek |
-            Channel::OHLCFifteenDay => {
-                let ohlc: public_messages::OHLC = serde_json::from_value(data)?;
-                ChannelMessage::OHLC(ohlc)
-            }
+            Channel::Ticker => ChannelMessage::Ticker(serde_json::from_value(data)?),
+            Channel::OHLC(_) => ChannelMessage::OHLC(serde_json::from_value(data)?),
+            Channel::Trade => ChannelMessage::Trade(serde_json::from_value(data)?),
+            Channel::Spread => ChannelMessage::Spread(serde_json::from_value(data)?),
+            Channel::Book(_) => ChannelMessage::Book(serde_json::from_value(data)?),
         };
         Ok(channel_message)
     }
@@ -115,12 +135,16 @@ impl<'de> Deserialize<'de> for ChannelMessageWrapper {
                 let message: serde_json::Value = seq
                     .next_element()?
                     .ok_or_else(|| DeError::invalid_length(1, &self))?;
-                let channel: Channel = seq
+                let channel: &str = seq
                     .next_element()?
                     .ok_or_else(|| DeError::invalid_length(2, &self))?;
                 let pair: String = seq
                     .next_element()?
                     .ok_or_else(|| DeError::invalid_length(3, &self))?;
+                let channel= match Channel::from_str(channel) {
+                    Ok(c) => c,
+                    Err(e) => return Err(DeError::custom(format!("invalid value for channel, input was {} -> {}", channel, e)))
+                };
                 let message = match ChannelMessage::new(&channel, message) {
                     Ok(m) => m,
                     Err(e) => return Err(DeError::custom(format!("message inner object cannot be deserialized as {} -> {}", channel, e)))
@@ -170,6 +194,10 @@ mod tests {
             bail!("expected ohlc type");
         };
         assert_eq!(*ohlc.count(), 2);
+        match channel_message.channel {
+            Channel::OHLC(interval) => assert!(matches!(interval, general_messages::Interval::FiveMin)),
+            _ => panic!("invalid interval. expected 5")
+        }
         Ok(())
     }
 
@@ -186,7 +214,7 @@ mod tests {
         let channel_message: Message = serde_json::from_str(&j)?;
         match channel_message {
             Message::ChannelMessage(_) => bail!("expected event got channel message"),
-            Message::Event(e) => { }
+            Message::Event(_) => { }
         }
         Ok(())
     }

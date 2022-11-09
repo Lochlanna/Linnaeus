@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, TimestampSecondsWithFrac};
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct Price {
     price: Decimal,
     whole_lot_volume: i64,
@@ -13,14 +12,12 @@ pub struct Price {
 }
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct ClosePrice {
     price: Decimal,
     lot_volume: Decimal,
 }
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct DayRolling {
     today: Decimal,
     last_24_hours: Decimal,
@@ -48,19 +45,77 @@ pub struct Ticker {
 
 #[serde_as]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct OHLC {
     #[serde_as(as = "TimestampSecondsWithFrac<String>")]
     time: chrono::DateTime<chrono::Utc>,
-    #[serde(rename = "etime")]
     #[serde_as(as = "TimestampSecondsWithFrac<String>")]
     end_time: chrono::DateTime<chrono::Utc>,
     open: Decimal,
     high: Decimal,
     low: Decimal,
     close: Decimal,
-    #[serde(rename = "vwap")]
     volume_weighted_average_price: Decimal,
     volume: Decimal,
     count: u64,
+}
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
+pub enum Side {
+    #[serde(rename = "b")]
+    Buy,
+    #[serde(rename = "s")]
+    Sell
+}
+
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
+pub enum OrderType {
+    #[serde(rename = "b")]
+    Market,
+    #[serde(rename = "s")]
+    Limit
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct Trade {
+    price: Decimal,
+    volume: Decimal,
+    #[serde_as(as = "TimestampSecondsWithFrac<String>")]
+    time: chrono::DateTime<chrono::Utc>,
+    side: Side,
+    order_type: OrderType,
+    misc: String
+}
+
+pub type Trades = Vec<Trade>;
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct Spread {
+    price: Decimal,
+    volume: Decimal,
+    #[serde_as(as = "TimestampSecondsWithFrac<String>")]
+    timestamp: chrono::DateTime<chrono::Utc>,
+    bid_volume: Decimal,
+    ask_volume: Decimal,
+}
+
+pub type Spreads = Vec<Spread>;
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct PriceLevel {
+    price: Decimal,
+    volume: Decimal,
+    #[serde_as(as = "TimestampSecondsWithFrac<String>")]
+    timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
+pub struct Book {
+    #[serde(rename = "as")]
+    ask_levels: Vec<PriceLevel>,
+    #[serde(rename = "bs")]
+    bid_levels: Vec<PriceLevel>
 }
