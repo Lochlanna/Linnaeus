@@ -1,0 +1,7 @@
+{
+  "event": "unsubscribe",
+  "subscription": {
+    "name": "ownTrades",
+    "token": "WW91ciBhdXRoZW50aWNhdGlvbiB0b2tlbiBnb2VzIGhlcmUu"
+  }
+}

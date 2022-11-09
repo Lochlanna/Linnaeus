@@ -1,0 +1,8 @@
+{
+  "channelName": "ownTrades",
+  "event": "subscriptionStatus",
+  "status": "subscribed",
+  "subscription": {
+    "name": "ownTrades"
+  }
+}

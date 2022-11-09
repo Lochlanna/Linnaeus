@@ -1,0 +1,10 @@
+{
+  "event": "subscribe",
+  "pair": [
+    "XBT/EUR"
+  ],
+  "subscription": {
+    "interval": 5,
+    "name": "ohlc"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "descr": "order edited price = 9000.00000000",
+  "event": "editOrderStatus",
+  "originaltxid": "O65KZW-J4AW3-VFS74A",
+  "reqid": 3,
+  "status": "ok",
+  "txid": "OTI672-HJFAO-XOIPPK"
+}
