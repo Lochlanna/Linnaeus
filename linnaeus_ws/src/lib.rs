@@ -39,7 +39,7 @@ pub enum Channel {
     #[serde(rename = "ohlc-15")]
     OHLCFifteenMin,
     #[serde(rename = "ohlc-30")]
-    OHLCThiryMin,
+    OHLCThirtyMin,
     #[serde(rename = "ohlc-60")]
     OHLCOneHour,
     #[serde(rename = "ohlc-240")]
@@ -68,7 +68,7 @@ impl ChannelMessage {
             Channel::OHLCOneMin |
             Channel::OHLCFiveMin |
             Channel::OHLCFifteenMin |
-            Channel::OHLCThiryMin |
+            Channel::OHLCThirtyMin |
             Channel::OHLCOneHour |
             Channel::OHLCFourHour |
             Channel::OHLCOneDay |
@@ -170,6 +170,24 @@ mod tests {
             bail!("expected ohlc type");
         };
         assert_eq!(*ohlc.count(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_any_message() -> anyhow::Result<()> {
+        let j = load_test_json("ticker")?;
+        let channel_message: Message = serde_json::from_str(&j)?;
+        match channel_message {
+            Message::ChannelMessage(_) => {},
+            Message::Event(_) => bail!("expected channel message not event")
+        }
+
+        let j = load_test_json("ping")?;
+        let channel_message: Message = serde_json::from_str(&j)?;
+        match channel_message {
+            Message::ChannelMessage(_) => bail!("expected event got channel message"),
+            Message::Event(e) => { }
+        }
         Ok(())
     }
 }
