@@ -21,3 +21,8 @@ derive-new = "0.5"
 derive-getters = "0.2"
 derive_setters = "0.1.5"
 log = "0.4"
+
+
+[dev-dependencies]
+anyhow = "1.0"
+pretty_assertions = "1.2"
