@@ -4,7 +4,7 @@ pub mod public_messages;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use serde::de::Error as DeError;
 use serde::de::{SeqAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::Formatter;
 use std::str::FromStr;
 use derive_getters::Getters;
@@ -35,14 +35,48 @@ pub enum Event {
     SubscriptionStatus(SubscriptionStatus),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, DisplayEnum)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, DisplayEnum)]
 pub enum Channel {
     Ticker,
     OHLC(Interval),
     Trade,
     Spread,
     Book(Depth),
+}
+
+impl Serialize for Channel {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        match self {
+            Channel::Ticker => serializer.serialize_str("ticker"),
+            Channel::OHLC(interval) => serializer.serialize_str(format!("ohlc-{}", *interval as u32).as_str()),
+            Channel::Trade => serializer.serialize_str("trade"),
+            Channel::Spread => serializer.serialize_str("spread"),
+            Channel::Book(depth) => serializer.serialize_str(format!("book-{}", *depth as u16).as_str()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Channel {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        struct StringVisitor {}
+
+        impl<'de> Visitor<'de> for StringVisitor {
+            type Value = Channel;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("ticker|ohlc-{}|trade|spread|book-{}")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: DeError {
+                Channel::from_str(v).or_else(|e| Err(DeError::custom(e)))
+            }
+        }
+
+        deserializer.deserialize_str(StringVisitor{})
+    }
 }
 
 impl FromStr for Channel {
@@ -200,5 +234,75 @@ impl<'de> Deserialize<'de> for ChannelMessageWrapper {
         }
 
         deserializer.deserialize_seq(ChannelMessageWrapperVisitor {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::bail;
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use pretty_assertions::assert_str_eq;
+    use crate::test_utils;
+
+
+    #[test]
+    fn deserialize_channel_message() -> anyhow::Result<()> {
+        let j = test_utils::load_test_json("public/ticker")?;
+        let channel_message: ChannelMessageWrapper = serde_json::from_str(&j)?;
+        assert_str_eq!(channel_message.pair(), "XBT/USD");
+        let ChannelMessage::Ticker(ticker) = channel_message.message() else {
+            bail!("expected ticker type");
+        };
+        assert_eq!(*ticker.ask().whole_lot_volume(), 1);
+
+        let j = test_utils::load_test_json("public/ohlc-5")?;
+        let channel_message: ChannelMessageWrapper = serde_json::from_str(&j)?;
+        assert_str_eq!(channel_message.pair(), "XBT/USD");
+        let ChannelMessage::OHLC(ohlc) = channel_message.message() else {
+            bail!("expected ohlc type");
+        };
+        assert_eq!(*ohlc.count(), 2);
+        match channel_message.channel() {
+            Channel::OHLC(interval) => assert!(matches!(interval, general_messages::Interval::FiveMin)),
+            _ => panic!("invalid interval. expected 5")
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_any_message() -> anyhow::Result<()> {
+        let j = test_utils::load_test_json("public/ticker")?;
+        let channel_message: Message = serde_json::from_str(&j)?;
+        match channel_message {
+            Message::ChannelMessage(_) => {},
+            Message::Event(_) => bail!("expected channel message not event")
+        }
+
+        let j = test_utils::load_test_json("general/ping")?;
+        let channel_message: Message = serde_json::from_str(&j)?;
+        match channel_message {
+            Message::ChannelMessage(_) => bail!("expected event got channel message"),
+            Message::Event(_) => { }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn multiple_objects_in_message() -> anyhow::Result<()> {
+        let j = test_utils::load_test_json("public/ticker")?;
+        let channel_message: Message = serde_json::from_str(&j)?;
+        match channel_message {
+            Message::ChannelMessage(_) => {},
+            Message::Event(_) => bail!("expected channel message not event")
+        }
+
+        let j = test_utils::load_test_json("general/ping")?;
+        let channel_message: Message = serde_json::from_str(&j)?;
+        match channel_message {
+            Message::ChannelMessage(_) => bail!("expected event got channel message"),
+            Message::Event(_) => { }
+        }
+        Ok(())
     }
 }
