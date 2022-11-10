@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::Formatter;
 use std::str::FromStr;
 use derive_getters::Getters;
+use serde_json::Value;
 use strum::Display as DisplayEnum;
 
 use general_messages::*;
@@ -41,7 +42,7 @@ pub enum Channel {
     OHLC(Interval),
     Trade,
     Spread,
-    Book(Depth)
+    Book(Depth),
 }
 
 impl FromStr for Channel {
@@ -49,11 +50,11 @@ impl FromStr for Channel {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            return Err("input empty")
+            return Err("input empty");
         }
         let mut split = s.splitn(2, '-');
         let Some(name) = split.next() else {
-            return Err("no valid strings")
+            return Err("no valid strings");
         };
 
         match name {
@@ -64,19 +65,19 @@ impl FromStr for Channel {
         }
 
         let Some(value) = split.next() else {
-            return Err("unknown channel")
+            return Err("unknown channel");
         };
 
         match name {
             "ohlc" => {
                 let Ok(interval) = serde_json::from_str::<Interval>(value) else {
-                    return Err("invalid value for ohlc interval")
+                    return Err("invalid value for ohlc interval");
                 };
                 Ok(Channel::OHLC(interval))
             }
             "book" => {
                 let Ok(depth) = serde_json::from_str::<Depth>(value) else {
-                    return Err("invalid value for book depth")
+                    return Err("invalid value for book depth");
                 };
                 Ok(Channel::Book(depth))
             }
@@ -85,13 +86,13 @@ impl FromStr for Channel {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub enum ChannelMessage {
     Ticker(Ticker),
     OHLC(OHLC),
     Trade(Trades),
     Spread(Spreads),
-    Book(Book)
+    Book(Book),
 }
 
 impl ChannelMessage {
@@ -127,29 +128,64 @@ impl<'de> Deserialize<'de> for ChannelMessageWrapper {
             type Value = ChannelMessageWrapper;
 
             fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-                formatter.write_str("[i32, ChannelMessage, String, String]")
+                formatter.write_str("[i64, ChannelMessage..., String, String]")
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
                 where
                     A: SeqAccess<'de>,
             {
+                let min_num_objects = match seq.size_hint() {
+                    None => 1,
+                    Some(n) => {
+                        if n <= 3 {
+                            return Err(DeError::invalid_length(n, &self));
+                        }
+                        n - 3
+                    }
+                };
+
                 let id: i64 = seq
                     .next_element()?
                     .ok_or_else(|| DeError::invalid_length(0, &self))?;
-                let message: serde_json::Value = seq
-                    .next_element()?
-                    .ok_or_else(|| DeError::invalid_length(1, &self))?;
-                let channel: &str = seq
-                    .next_element()?
-                    .ok_or_else(|| DeError::invalid_length(2, &self))?;
+                let channel: Channel;
+                let mut messages = Vec::with_capacity(min_num_objects);
+                loop {
+                    let val: Value = seq
+                        .next_element()?
+                        .ok_or_else(|| DeError::invalid_length(1, &self))?;
+
+                    if val.is_string() {
+                        channel = match Channel::from_str(val.as_str().unwrap()) {
+                            Ok(c) => c,
+                            Err(e) => return Err(DeError::custom(format!("invalid value for channel, input was {} -> {}", val.as_str().unwrap(), e)))
+                        };
+                        break;
+                    } else if val.is_object() || val.is_array() {
+                        messages.push(val);
+                    } else {
+                        return match val {
+                            Value::Null => Err(DeError::custom("unexpected value. Expected channel name or json object got null")),
+                            Value::Bool(_) => Err(DeError::custom("unexpected value. Expected channel name or json object got bool")),
+                            Value::Number(_) => Err(DeError::custom("unexpected value. Expected channel name or json object got number")),
+                            Value::String(_) => Err(DeError::custom("unexpected value. Expected channel name or json object got string")),
+                            Value::Array(_) => Err(DeError::custom("unexpected value. Expected channel name or json object got array")),
+                            Value::Object(_) => Err(DeError::custom("unexpected value. Expected channel name or json object got object")),
+                        };
+                    }
+                }
+                if messages.is_empty() {
+                    return Err(DeError::custom("no data contained in message"));
+                }
+                let message: Value;
+                if messages.len() == 1 {
+                    message = messages.remove(0);
+                } else {
+                    message = Value::Array(messages)
+                }
                 let pair: String = seq
                     .next_element()?
                     .ok_or_else(|| DeError::invalid_length(3, &self))?;
-                let channel= match Channel::from_str(channel) {
-                    Ok(c) => c,
-                    Err(e) => return Err(DeError::custom(format!("invalid value for channel, input was {} -> {}", channel, e)))
-                };
                 let message = match ChannelMessage::new(&channel, message) {
                     Ok(m) => m,
                     Err(e) => return Err(DeError::custom(format!("message inner object cannot be deserialized as {} -> {}", channel, e)))
