@@ -1,5 +1,6 @@
 pub mod general_messages;
 pub mod public_messages;
+pub mod private_messages;
 
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use serde::de::Error as DeError;
@@ -13,6 +14,7 @@ use strum::Display as DisplayEnum;
 
 use general_messages::*;
 use public_messages::*;
+use crate::messages::private_messages::{OpenOrders, OwnTrades};
 
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
@@ -42,6 +44,8 @@ pub enum Channel {
     Trade,
     Spread,
     Book(Depth),
+    OwnTrades,
+    OpenOrders
 }
 
 impl Serialize for Channel {
@@ -52,6 +56,8 @@ impl Serialize for Channel {
             Channel::Trade => serializer.serialize_str("trade"),
             Channel::Spread => serializer.serialize_str("spread"),
             Channel::Book(depth) => serializer.serialize_str(format!("book-{}", *depth as u16).as_str()),
+            Channel::OwnTrades => serializer.serialize_str("ownTrades"),
+            Channel::OpenOrders => serializer.serialize_str("openOrders"),
         }
     }
 }
@@ -95,6 +101,8 @@ impl FromStr for Channel {
             "ticker" => return Ok(Channel::Ticker),
             "trade" => return Ok(Channel::Trade),
             "spread" => return Ok(Channel::Spread),
+            "ownTrades" => return Ok(Channel::OwnTrades),
+            "openOrders" => return Ok(Channel::OpenOrders),
             _ => {}
         }
 
@@ -127,6 +135,8 @@ pub enum ChannelMessage {
     Trade(Trades),
     Spread(Spreads),
     Book(Book),
+    OwnTrades(OwnTrades),
+    OpenOrders(OpenOrders)
 }
 
 impl ChannelMessage {
@@ -137,9 +147,16 @@ impl ChannelMessage {
             Channel::Trade => ChannelMessage::Trade(serde_json::from_value(data)?),
             Channel::Spread => ChannelMessage::Spread(serde_json::from_value(data)?),
             Channel::Book(_) => ChannelMessage::Book(serde_json::from_value(data)?),
+            Channel::OwnTrades => ChannelMessage::OwnTrades(serde_json::from_value(data)?),
+            Channel::OpenOrders => ChannelMessage::OpenOrders(serde_json::from_value(data)?),
         };
         Ok(channel_message)
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Getters)]
+pub struct Sequence {
+    sequence: i64
 }
 
 #[derive(Serialize, Debug, Clone, Getters)]
@@ -148,6 +165,7 @@ pub struct ChannelMessageWrapper {
     message: ChannelMessage,
     channel: Channel,
     pair: String,
+    sequence: Option<Sequence>
 }
 
 //This is nasty. Kraken why you like this
@@ -224,11 +242,14 @@ impl<'de> Deserialize<'de> for ChannelMessageWrapper {
                     Ok(m) => m,
                     Err(e) => return Err(DeError::custom(format!("message inner object cannot be deserialized as {} -> {}", channel, e)))
                 };
+
+                let sequence = seq.next_element::<Sequence>().ok().unwrap_or(None);
                 Ok(ChannelMessageWrapper {
                     id,
                     message,
                     channel,
                     pair,
+                    sequence
                 })
             }
         }

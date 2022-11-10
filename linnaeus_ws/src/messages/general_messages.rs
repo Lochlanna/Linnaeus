@@ -335,7 +335,6 @@ mod tests {
         assert!(matches!(sub_status.status, Status::Unsubscribed))
     }
 
-    #[ignore = "own trades not channel yet not supported"]
     #[test]
     fn subscription_status_own_trades() {
         let j = test_utils::load_test_json("general/subscription_status/subscription_status_own_trades")
@@ -348,7 +347,7 @@ mod tests {
         let Event::SubscriptionStatus(sub_status) = event else {
             panic!("expected subscription status event")
         };
-        // assert!(matches!(sub_status.channel_name, Channel::O));
+        assert!(matches!(sub_status.channel_name, Channel::OwnTrades));
         assert!(matches!(sub_status.status, Status::Subscribed))
     }
 

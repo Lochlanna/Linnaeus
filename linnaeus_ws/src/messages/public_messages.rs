@@ -2,7 +2,7 @@ use derive_getters::Getters;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, TimestampSecondsWithFrac};
+use serde_with::{serde_as, TimestampSecondsWithFrac, DisplayFromStr};
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Price {
@@ -102,6 +102,12 @@ pub struct Spread {
 
 pub type Spreads = Vec<Spread>;
 
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
+pub enum BookUpdateType {
+    #[serde(rename = "r")]
+    Republished
+}
+
 #[serde_as]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct PriceLevel {
@@ -109,6 +115,7 @@ pub struct PriceLevel {
     volume: Decimal,
     #[serde_as(as = "TimestampSecondsWithFrac<String>")]
     timestamp: chrono::DateTime<chrono::Utc>,
+    update_type: Option<BookUpdateType>
 }
 
 #[serde_as]
@@ -117,5 +124,8 @@ pub struct Book {
     #[serde(rename = "as")]
     ask_levels: Vec<PriceLevel>,
     #[serde(rename = "bs")]
-    bid_levels: Vec<PriceLevel>
+    bid_levels: Vec<PriceLevel>,
+    #[serde(rename = "c")]
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    checksum: Option<u32>
 }
