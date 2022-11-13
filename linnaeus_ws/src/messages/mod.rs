@@ -16,6 +16,9 @@ use general_messages::*;
 use public_messages::*;
 use crate::messages::private_messages::{OpenOrders, OwnTrades};
 
+//TODO use this everywhere
+pub type Pair = String;
+
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
 #[serde(untagged)]
@@ -37,7 +40,7 @@ pub enum Event {
     SubscriptionStatus(SubscriptionStatus),
 }
 
-#[derive(Debug, Clone, DisplayEnum)]
+#[derive(Debug, Clone, DisplayEnum, PartialOrd, PartialEq, Ord, Eq)]
 pub enum Channel {
     Ticker,
     OHLC(Interval),

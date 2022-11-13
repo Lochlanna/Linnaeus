@@ -35,7 +35,7 @@ pub struct SystemStatus {
     version: String,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy)]
+#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq)]
 #[repr(u32)]
 pub enum Interval {
     OneMin = 1,
@@ -49,7 +49,8 @@ pub enum Interval {
     FifteenDay = 21600,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy)]
+
+#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq)]
 #[repr(u16)]
 pub enum Depth {
     Ten = 10,
@@ -58,7 +59,6 @@ pub enum Depth {
     FiveHundred = 500,
     OneThousand = 1000,
 }
-
 
 //TODO write custom serailzie deserialize on super::Channel and ditch this one
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
