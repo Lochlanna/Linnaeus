@@ -193,8 +193,8 @@ impl LinnaeusWebsocket {
         Ok(one_shot_receiver)
     }
 
-    pub fn get_recent_event(&self, event_type: &messages::EventType) -> Option<messages::Event> {
-        self.recent_events.get(event_type).map(|e| e.clone())
+    pub fn get_recent_event(&self, event_type: messages::EventType) -> Option<messages::Event> {
+        self.recent_events.get(&event_type).map(|e| e.clone())
     }
 
     pub async fn subscribe(&self, channel: messages::Channel, pair: String) -> Result<tokio::sync::broadcast::Receiver<ChannelMessageWrapper>, error::LinnaeusWebsocketError> {
@@ -256,9 +256,11 @@ mod websocket_tests {
     use super::*;
     use std::sync::Mutex;
     use std::time::Duration;
+    use log::info;
     use crate::messages::Event;
     use crate::test_utils::setup;
     use once_cell::sync::Lazy;
+    use pretty_assertions::assert_str_eq;
 
 
     static SHARED_LWS: Lazy<Mutex<Option<Arc<LinnaeusWebsocket>>>> = Lazy::new(|| {
@@ -306,6 +308,32 @@ mod websocket_tests {
 
         println!("Got a message! {}", value);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn system_status_received() -> anyhow::Result<()> {
+        setup();
+        let lws = get_shared_lws().await;
+        let mut event = lws.get_recent_event(messages::EventType::SystemStatus);
+        let mut counter = 0;
+        while event.is_none() && counter < 10 {
+            tokio::time::sleep(Duration::from_secs_f64(0.1)).await;
+            event = lws.get_recent_event(messages::EventType::SystemStatus);
+            counter += 1;
+        }
+        assert!(event.is_some());
+
+        info!("got system status after {} iterations", counter);
+
+        let event = event.unwrap();
+        let event = match event {
+            Event::SystemStatus(ss) => ss,
+            _ => panic!("didnt' get a system status event. Got {}", event)
+        };
+
+        assert!(matches!(event.status(), messages::general_messages::SystemStatusCode::Online));
+        assert_str_eq!(event.version(), "1.9.0");
         Ok(())
     }
 }

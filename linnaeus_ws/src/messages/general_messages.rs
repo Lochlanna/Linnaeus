@@ -34,7 +34,7 @@ pub enum SystemStatusCode {
     PostOnly,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Getters)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemStatus {
     #[serde(rename = "connectionID")]
