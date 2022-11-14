@@ -5,11 +5,12 @@ mod test_helpers;
 use std::sync::Arc;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use linnaeus_request::KrakenKeyPair;
-use reqwest::{Client, Url};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub use linnaeus_ws as ws;
+use linnaeus_ws::error::LinnaeusWebsocketError;
 use linnaeus_ws::LinnaeusWebsocket;
 
 static KEY_ROTATION_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -22,7 +23,7 @@ pub struct Linnaeus {
     base_url: String,
     ws_url: String,
     #[serde(skip)]
-    ws_client: Option<Arc<ws::LinnaeusWebsocket>>
+    ws_client: Option<Arc<LinnaeusWebsocket>>
 }
 
 impl Linnaeus {
@@ -37,15 +38,17 @@ impl Linnaeus {
         }
     }
 
-    pub async fn get_websocket_client(&mut self) -> Result<Arc<ws::LinnaeusWebsocket>, ws::error::LinnaeusWebsocketError> {
+    pub async fn get_websocket_client(&mut self) -> Result<Arc<LinnaeusWebsocket>, LinnaeusWebsocketError> {
         match &self.ws_client {
             None => {
-                //TODO return result
-                let client = ws::LinnaeusWebsocket::new(&self.ws_url).await;
-                self.ws_client = Some(client.clone());
+                let client = LinnaeusWebsocket::new(&self.ws_url).await;
+                match &client {
+                    Ok(client) => self.ws_client = Some(client.clone()),
+                    _ => {}
+                }
                 client
             }
-            Some(client) => client.clone()
+            Some(client) => Ok(client.clone())
         }
     }
 }

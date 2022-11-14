@@ -1,9 +1,9 @@
+use crate::messages::{Channel, Pair};
 use derive_getters::Getters;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::skip_serializing_none;
-use crate::messages::Channel;
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Ping {
@@ -12,9 +12,7 @@ pub struct Ping {
 }
 impl Ping {
     pub fn new(request_id: i64) -> Self {
-        Self {
-            request_id
-        }
+        Self { request_id }
     }
 }
 
@@ -43,7 +41,9 @@ pub struct SystemStatus {
     version: String,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq, Hash)]
+#[derive(
+    Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq, Hash,
+)]
 #[repr(u32)]
 pub enum Interval {
     OneMin = 1,
@@ -57,8 +57,15 @@ pub enum Interval {
     FifteenDay = 21600,
 }
 
+impl Default for Interval {
+    fn default() -> Self {
+        Self::OneMin
+    }
+}
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq, Hash)]
+#[derive(
+    Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq, Hash,
+)]
 #[repr(u16)]
 pub enum Depth {
     Ten = 10,
@@ -66,6 +73,12 @@ pub enum Depth {
     OneHundred = 100,
     FiveHundred = 500,
     OneThousand = 1000,
+}
+
+impl Default for Depth {
+    fn default() -> Self {
+        Self::Ten
+    }
 }
 
 //TODO write custom serailzie deserialize on super::Channel and ditch this one
@@ -79,7 +92,7 @@ pub enum SubscribableChannel {
     OwnTrades,
     Spread,
     Ticker,
-    Trade
+    Trade,
 }
 
 impl From<&crate::messages::Channel> for SubscribableChannel {
@@ -91,26 +104,25 @@ impl From<&crate::messages::Channel> for SubscribableChannel {
             Channel::Spread => Self::Spread,
             Channel::Book(_) => Self::Book,
             Channel::OwnTrades => Self::OwnTrades,
-            Channel::OpenOrders => Self::OpenOrders
+            Channel::OpenOrders => Self::OpenOrders,
         }
     }
 }
 
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "lowercase")]
 pub struct SubscribeInfo {
     depth: Option<Depth>,
     interval: Option<Interval>,
     name: SubscribableChannel,
-    ratecounter: Option<bool>,
+    rate_counter: Option<bool>,
     snapshot: Option<bool>,
     token: Option<String>,
 }
 
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct Subscribe {
     #[serde(rename = "reqid")]
     request_id: Option<i64>,
@@ -119,25 +131,66 @@ pub struct Subscribe {
 }
 
 impl Subscribe {
-    pub fn from_channel(channel: crate::messages::Channel, request_id: i64, pair: String) -> Self {
-        Self {
-            request_id: Some(request_id),
-            pair: Some(vec![pair]),
-            subscription: SubscribeInfo {
-                depth: match channel {
-                    Channel::Book(depth) => Some(depth),
-                    _ => None
-                },
-                interval: match channel {
-                    Channel::OHLC(interval) => Some(interval),
-                    _ => None
-                },
-                name: (&channel).into(),
-                ratecounter: None,
-                snapshot: None,
-                token: None
+    pub fn new(channel: Channel) -> Self {
+        let name;
+        let mut depth = None;
+        let mut interval = None;
+        match channel {
+            Channel::Ticker => {
+                name = SubscribableChannel::Ticker;
             }
+            Channel::OHLC(i) => {
+                name = SubscribableChannel::OHLC;
+                interval = Some(i);
+            }
+            Channel::Trade => {
+                name = SubscribableChannel::Trade;
+            }
+            Channel::Spread => {
+                name = SubscribableChannel::Spread;
+            }
+            Channel::Book(d) => {
+                name = SubscribableChannel::Book;
+                depth = Some(d)
+            }
+            Channel::OwnTrades => {
+                name = SubscribableChannel::OwnTrades;
+            }
+            Channel::OpenOrders => {
+                name = SubscribableChannel::OpenOrders;
+            }
+        };
+
+        Subscribe {
+            request_id: None,
+            pair: None,
+            subscription: SubscribeInfo {
+                depth,
+                interval,
+                name,
+                rate_counter: None,
+                snapshot: None,
+                token: None,
+            },
         }
+    }
+
+    pub fn with_pair(mut self, pair: Pair) -> Self {
+        match &mut self.pair {
+            None => self.pair = Some(vec![pair]),
+            Some(pairs) => pairs.push(pair),
+        };
+        self
+    }
+
+    pub fn with_token(mut self, token: String) -> Self {
+        self.subscription.token = Some(token);
+        self
+    }
+
+    pub fn with_request_id(mut self, request_id: i64) -> Self {
+        self.request_id = Some(request_id);
+        self
     }
 }
 
@@ -166,7 +219,7 @@ pub struct UnSubscribe {
 pub enum Status {
     Subscribed,
     Unsubscribed,
-    Error
+    Error,
 }
 
 #[skip_serializing_none]
@@ -194,21 +247,19 @@ pub struct SubscriptionStatus {
     subscription: Subscription,
 }
 
-
 #[cfg(test)]
 mod general_message_tests {
-    use pretty_assertions::assert_eq;
-    use pretty_assertions::assert_str_eq;
     use crate::messages::*;
     use crate::test_utils;
-
+    use pretty_assertions::assert_eq;
+    use pretty_assertions::assert_str_eq;
 
     #[test]
     fn ping() {
-        let j = test_utils::load_test_json("general/ping")
-            .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let j =
+            test_utils::load_test_json("general/ping").expect("couldn't load test json from file");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -220,10 +271,10 @@ mod general_message_tests {
 
     #[test]
     fn pong() {
-        let j = test_utils::load_test_json("general/pong")
-            .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let j =
+            test_utils::load_test_json("general/pong").expect("couldn't load test json from file");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -237,8 +288,8 @@ mod general_message_tests {
     fn heartbeat() {
         let j = test_utils::load_test_json("general/heartbeat")
             .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -251,8 +302,8 @@ mod general_message_tests {
     fn system_status() {
         let j = test_utils::load_test_json("general/system_status")
             .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -266,8 +317,8 @@ mod general_message_tests {
     fn system_status_b() {
         let j = test_utils::load_test_json("general/system_status_b")
             .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -288,13 +339,14 @@ mod general_message_tests {
                 depth: None,
                 interval: Some(Interval::FiveMin),
                 name: SubscribableChannel::OHLC,
-                ratecounter: None,
+                rate_counter: None,
                 snapshot: None,
-                token: None
-            }
+                token: None,
+            },
         };
         let subscribe_event = Event::Subscribe(subscribe_message);
-        let produced_json = serde_json::to_string_pretty(&subscribe_event).expect("couldn't serialise subscription");
+        let produced_json = serde_json::to_string_pretty(&subscribe_event)
+            .expect("couldn't serialise subscription");
         assert_str_eq!(produced_json, expected_json)
     }
 
@@ -309,13 +361,14 @@ mod general_message_tests {
                 depth: None,
                 interval: None,
                 name: SubscribableChannel::OwnTrades,
-                ratecounter: None,
+                rate_counter: None,
                 snapshot: None,
-                token: Some("WW91ciBhdXRoZW50aWNhdGlvbiB0b2tlbiBnb2VzIGhlcmUu".to_string())
-            }
+                token: Some("WW91ciBhdXRoZW50aWNhdGlvbiB0b2tlbiBnb2VzIGhlcmUu".to_string()),
+            },
         };
         let subscribe_event = Event::Subscribe(subscribe_message);
-        let produced_json = serde_json::to_string_pretty(&subscribe_event).expect("couldn't serialise subscription");
+        let produced_json = serde_json::to_string_pretty(&subscribe_event)
+            .expect("couldn't serialise subscription");
         assert_str_eq!(produced_json, expected_json)
     }
 
@@ -330,20 +383,22 @@ mod general_message_tests {
                 depth: None,
                 interval: None,
                 name: SubscribableChannel::Ticker,
-                ratecounter: None,
+                rate_counter: None,
                 snapshot: None,
-                token: None
-            }
+                token: None,
+            },
         };
         let subscribe_event = Event::Subscribe(subscribe_message);
-        let produced_json = serde_json::to_string_pretty(&subscribe_event).expect("couldn't serialise subscription");
+        let produced_json = serde_json::to_string_pretty(&subscribe_event)
+            .expect("couldn't serialise subscription");
         assert_str_eq!(produced_json, expected_json)
     }
 
     #[test]
     fn unsubscribe_own_trades() {
-        let expected_json = test_utils::load_test_json("general/unsubscribe/unsubscribe_own_trades")
-            .expect("couldn't load test json from file");
+        let expected_json =
+            test_utils::load_test_json("general/unsubscribe/unsubscribe_own_trades")
+                .expect("couldn't load test json from file");
         let unsubscribe_message = UnSubscribe {
             request_id: None,
             pair: None,
@@ -351,11 +406,12 @@ mod general_message_tests {
                 depth: None,
                 interval: None,
                 name: SubscribableChannel::OwnTrades,
-                token: Some("WW91ciBhdXRoZW50aWNhdGlvbiB0b2tlbiBnb2VzIGhlcmUu".to_string())
-            }
+                token: Some("WW91ciBhdXRoZW50aWNhdGlvbiB0b2tlbiBnb2VzIGhlcmUu".to_string()),
+            },
         };
         let unsubscribe_event = Event::Unsubscribe(unsubscribe_message);
-        let produced_json = serde_json::to_string_pretty(&unsubscribe_event).expect("couldn't serialise subscription");
+        let produced_json = serde_json::to_string_pretty(&unsubscribe_event)
+            .expect("couldn't serialise subscription");
         assert_str_eq!(produced_json, expected_json)
     }
 
@@ -370,11 +426,12 @@ mod general_message_tests {
                 depth: None,
                 interval: None,
                 name: SubscribableChannel::Ticker,
-                token: None
-            }
+                token: None,
+            },
         };
         let unsubscribe_event = Event::Unsubscribe(unsubscribe_message);
-        let produced_json = serde_json::to_string_pretty(&unsubscribe_event).expect("couldn't serialise subscription");
+        let produced_json = serde_json::to_string_pretty(&unsubscribe_event)
+            .expect("couldn't serialise subscription");
         assert_str_eq!(produced_json, expected_json)
     }
 
@@ -382,25 +439,30 @@ mod general_message_tests {
     fn subscription_status_ohlc() {
         let j = test_utils::load_test_json("general/subscription_status/subscription_status_ohlc")
             .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
         let Event::SubscriptionStatus(sub_status) = event else {
             panic!("expected subscription status event")
         };
-        assert!(matches!(sub_status.channel_name, Channel::OHLC(Interval::FiveMin)));
+        assert!(matches!(
+            sub_status.channel_name,
+            Channel::OHLC(Interval::FiveMin)
+        ));
         assert_str_eq!(sub_status.pair.expect("expected a pair"), "XBT/EUR");
         assert!(matches!(sub_status.status, Status::Unsubscribed))
     }
 
     #[test]
     fn subscription_status_own_trades() {
-        let j = test_utils::load_test_json("general/subscription_status/subscription_status_own_trades")
-            .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let j = test_utils::load_test_json(
+            "general/subscription_status/subscription_status_own_trades",
+        )
+        .expect("couldn't load test json from file");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -413,10 +475,11 @@ mod general_message_tests {
 
     #[test]
     fn subscription_status_ticker() {
-        let j = test_utils::load_test_json("general/subscription_status/subscription_status_ticker")
-            .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let j =
+            test_utils::load_test_json("general/subscription_status/subscription_status_ticker")
+                .expect("couldn't load test json from file");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -433,8 +496,8 @@ mod general_message_tests {
     fn subscription_status_error() {
         let j = test_utils::load_test_json("general/subscription_status/subscription_status_error")
             .expect("couldn't load test json from file");
-        let message: Message = serde_json::from_str(&j)
-            .expect("failed to deserialize test json to message");
+        let message: Message =
+            serde_json::from_str(&j).expect("failed to deserialize test json to message");
         let Message::Event(event) = message else {
             panic!("expected event");
         };
@@ -443,8 +506,14 @@ mod general_message_tests {
         };
         assert!(matches!(sub_status.channel_name, Channel::Ticker));
         assert_str_eq!(sub_status.pair.expect("expected a pair"), "XBT/EUR");
-        assert_str_eq!(sub_status.error_message.expect("expected an error message"), "Subscription depth not supported");
+        assert_str_eq!(
+            sub_status.error_message.expect("expected an error message"),
+            "Subscription depth not supported"
+        );
         assert!(matches!(sub_status.status, Status::Error));
-        assert!(matches!(sub_status.subscription.depth.expect("expected a depth") as u16, 42));
+        assert!(matches!(
+            sub_status.subscription.depth.expect("expected a depth") as u16,
+            42
+        ));
     }
 }
