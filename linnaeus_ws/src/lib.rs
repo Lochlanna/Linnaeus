@@ -100,12 +100,13 @@ impl LinnaeusWebsocket {
         let client = client.as_ref();
 
         loop {
-            let msg = tokio::select! {
+            let msg:Option<Result<TungstenMessage, _>> = tokio::select! {
                 msg = read.next() => msg,
                 _ = &mut close_receiver => {
                     return read;
                 }
             };
+
             let Some(msg) = msg else {
                 continue;
             };
@@ -197,12 +198,12 @@ impl LinnaeusWebsocket {
         self.recent_events.get(&event_type).map(|e| e.clone())
     }
 
-    pub async fn subscribe(&self, channel: messages::Channel, pair: String) -> Result<tokio::sync::broadcast::Receiver<ChannelMessageWrapper>, error::LinnaeusWebsocketError> {
+    pub async fn subscribe(&self, channel: messages::Channel, pair: String) -> Result<broadcast::Receiver<ChannelMessageWrapper>, error::LinnaeusWebsocketError> {
         let sub_event = messages::general_messages::Subscribe::from_channel(channel.clone(), self.next_id() as i64, pair.clone());
 
         self.send_event(messages::Event::Subscribe(sub_event)).await?;
 
-        // Again this is nasty
+        //TODO This is nasty
         let sub_key = SubscriptionKey {
             channel,
             pair: Some(pair)
