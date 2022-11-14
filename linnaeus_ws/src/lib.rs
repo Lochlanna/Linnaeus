@@ -68,8 +68,13 @@ pub struct LinnaeusWebsocket {
 }
 
 impl LinnaeusWebsocket {
-    pub async fn new(url: Url) -> Arc<Self> {
-        let (ws_stream, _) = connect_async(url.clone()).await.expect("Failed to connect");
+    pub async fn new(url: &str) -> Result<Arc<Self>, error::LinnaeusWebsocketError> {
+        if !url.starts_with("wss://") {
+            return Err(error::LinnaeusWebsocketError::Url {reason: "websocket url must start with \"wss://\""})
+        }
+        let url = url::Url::parse(url)?;
+        
+        let (ws_stream, _) = connect_async(url.clone()).await?;
         println!("WebSocket handshake has been successfully completed");
         let (write, read) = ws_stream.split();
 
