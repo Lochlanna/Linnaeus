@@ -3,11 +3,19 @@ use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::skip_serializing_none;
+use crate::messages::Channel;
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 pub struct Ping {
     #[serde(rename = "reqid")]
     request_id: i64,
+}
+impl Ping {
+    pub fn new(request_id: i64) -> Self {
+        Self {
+            request_id
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
@@ -35,7 +43,7 @@ pub struct SystemStatus {
     version: String,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq, Hash)]
 #[repr(u32)]
 pub enum Interval {
     OneMin = 1,
@@ -50,7 +58,7 @@ pub enum Interval {
 }
 
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Debug, Serialize_repr, Deserialize_repr, Clone, Copy, PartialOrd, PartialEq, Ord, Eq, Hash)]
 #[repr(u16)]
 pub enum Depth {
     Ten = 10,
@@ -74,6 +82,20 @@ pub enum SubscribableChannel {
     Trade
 }
 
+impl From<&crate::messages::Channel> for SubscribableChannel {
+    fn from(c: &Channel) -> Self {
+        match c {
+            Channel::Ticker => Self::Ticker,
+            Channel::OHLC(_) => Self::Ticker,
+            Channel::Trade => Self::Trade,
+            Channel::Spread => Self::Spread,
+            Channel::Book(_) => Self::Book,
+            Channel::OwnTrades => Self::OwnTrades,
+            Channel::OpenOrders => Self::OpenOrders
+        }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Getters, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -94,6 +116,29 @@ pub struct Subscribe {
     request_id: Option<i64>,
     pair: Option<Vec<String>>, // TODO ISO 4217-A3 currency enum?
     subscription: SubscribeInfo,
+}
+
+impl Subscribe {
+    pub fn from_channel(channel: crate::messages::Channel, request_id: i64, pair: String) -> Self {
+        Self {
+            request_id: Some(request_id),
+            pair: Some(vec![pair]),
+            subscription: SubscribeInfo {
+                depth: match channel {
+                    Channel::Book(depth) => Some(depth),
+                    _ => None
+                },
+                interval: match channel {
+                    Channel::OHLC(Interval) => Some(Interval),
+                    _ => None
+                },
+                name: (&channel).into(),
+                ratecounter: None,
+                snapshot: None,
+                token: None
+            }
+        }
+    }
 }
 
 #[skip_serializing_none]

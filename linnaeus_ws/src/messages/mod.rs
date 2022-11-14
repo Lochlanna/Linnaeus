@@ -7,6 +7,7 @@ use serde::de::Error as DeError;
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::Formatter;
+use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use derive_getters::Getters;
 use serde_json::Value;
@@ -40,7 +41,45 @@ pub enum Event {
     SubscriptionStatus(SubscriptionStatus),
 }
 
-#[derive(Debug, Clone, DisplayEnum, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone, PartialOrd, PartialEq, Ord, Eq, Hash)]
+pub enum EventType {
+    Ping,
+    Pong,
+    Heartbeat,
+    SystemStatus,
+    Subscribe,
+    Unsubscribe,
+    SubscriptionStatus,
+}
+
+impl From<&Event> for EventType {
+    fn from(event: &Event) -> Self {
+        match event {
+            Event::Ping(_) => Self::Ping,
+            Event::Pong(_) => Self::Pong,
+            Event::Heartbeat => Self::Heartbeat,
+            Event::SystemStatus(_) => Self::SystemStatus,
+            Event::Subscribe(_) => Self::Subscribe,
+            Event::Unsubscribe(_) => Self::Unsubscribe,
+            Event::SubscriptionStatus(_) => Self::SubscriptionStatus,
+        }
+    }
+}
+
+impl Event {
+    pub fn get_request_id(&self) -> Option<i64> {
+        match self {
+            Event::Ping(p) => Some(p.request_id().clone()),
+            Event::Pong(p) => Some(p.request_id().clone()),
+            Event::Subscribe(s) => s.request_id().clone(),
+            Event::Unsubscribe(u) => u.request_id().clone(),
+            Event::SubscriptionStatus(s) => s.request_id().clone(),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug, Clone, DisplayEnum, PartialOrd, PartialEq, Ord, Eq, Hash)]
 pub enum Channel {
     Ticker,
     OHLC(Interval),
@@ -162,7 +201,7 @@ pub struct Sequence {
     sequence: i64
 }
 
-#[derive(Serialize, Debug, Clone, Getters)]
+#[derive(Serialize, DebugAsJson, Clone, Getters, DisplayAsJsonPretty)]
 pub struct ChannelMessageWrapper {
     id: i64,
     message: ChannelMessage,

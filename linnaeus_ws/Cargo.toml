@@ -22,9 +22,12 @@ derive-new = "0.5"
 derive-getters = "0.2"
 derive_setters = "0.1.5"
 log = "0.4"
-tokio-tungstenite = "0.17"
+tokio-tungstenite = {version = "0.17", features=["native-tls"]}
 url= {version = "2.3", features = ["serde"]}
+dashmap = {version="5.4.0", features = ["serde"]}
+futures = "0.3"
 
 [dev-dependencies]
 anyhow = "1.0"
 pretty_assertions = "1.2"
+simple_logger = "2.3"
