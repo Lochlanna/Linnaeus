@@ -38,7 +38,7 @@ pub enum SystemStatusCode {
 #[serde(rename_all = "camelCase")]
 pub struct SystemStatus {
     #[serde(rename = "connectionID")]
-    connection_id: i64,
+    connection_id: serde_json::Number,
     status: SystemStatusCode,
     version: String,
 }
@@ -129,7 +129,7 @@ impl Subscribe {
                     _ => None
                 },
                 interval: match channel {
-                    Channel::OHLC(Interval) => Some(Interval),
+                    Channel::OHLC(interval) => Some(interval),
                     _ => None
                 },
                 name: (&channel).into(),
@@ -196,7 +196,7 @@ pub struct SubscriptionStatus {
 
 
 #[cfg(test)]
-mod tests {
+mod general_message_tests {
     use pretty_assertions::assert_eq;
     use pretty_assertions::assert_str_eq;
     use crate::messages::*;
@@ -259,7 +259,22 @@ mod tests {
         let Event::SystemStatus(system_status) = event else {
             panic!("expected system status event")
         };
-        assert_eq!(system_status.connection_id, 8628615390848610000)
+        assert_eq!(system_status.connection_id, 8628615390848610000_u64.into())
+    }
+
+    #[test]
+    fn system_status_b() {
+        let j = test_utils::load_test_json("general/system_status_b")
+            .expect("couldn't load test json from file");
+        let message: Message = serde_json::from_str(&j)
+            .expect("failed to deserialize test json to message");
+        let Message::Event(event) = message else {
+            panic!("expected event");
+        };
+        let Event::SystemStatus(system_status) = event else {
+            panic!("expected system status event")
+        };
+        assert_eq!(system_status.connection_id, 18409569435183151535_u64.into())
     }
 
     #[test]

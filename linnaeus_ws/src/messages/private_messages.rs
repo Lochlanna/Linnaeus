@@ -2,7 +2,7 @@ use derive_getters::Getters;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, TimestampSecondsWithFrac, DisplayFromStr};
+use serde_with::{serde_as, TimestampSecondsWithFrac};
 
 #[derive(Serialize, Deserialize, DebugAsJson, DisplayAsJsonPretty, Clone)]
 #[serde(rename_all = "lowercase")]

@@ -7,7 +7,7 @@ use serde::de::Error as DeError;
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::Formatter;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::str::FromStr;
 use derive_getters::Getters;
 use serde_json::Value;
@@ -301,7 +301,7 @@ impl<'de> Deserialize<'de> for ChannelMessageWrapper {
 }
 
 #[cfg(test)]
-mod tests {
+mod wrapper_message_tests {
     use anyhow::bail;
     use super::*;
     use pretty_assertions::assert_eq;

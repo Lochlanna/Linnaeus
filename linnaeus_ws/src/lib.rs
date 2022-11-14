@@ -7,7 +7,7 @@ pub mod error;
 
 
 use std::hash::Hash;
-use std::sync::{Arc, LockResult};
+use std::sync::Arc;
 use display_json::{DebugAsJson, DisplayAsJsonPretty};
 use serde::{Serialize, Deserialize};
 use tokio::sync::broadcast;
@@ -18,9 +18,7 @@ use dashmap::mapref::entry::Entry;
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use log::{error, trace, warn};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::task::JoinHandle;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Message as TungstenMessage};
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
@@ -254,23 +252,37 @@ impl LinnaeusWebsocket {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::time::Duration;
-    use anyhow::bail;
+mod websocket_tests {
     use super::*;
-    use pretty_assertions::assert_eq;
-    use pretty_assertions::assert_str_eq;
-    use tokio::sync::broadcast::error::RecvError;
-    use tokio::time::error::Elapsed;
+    use std::sync::Mutex;
+    use std::time::Duration;
     use crate::messages::Event;
-    use crate::test_utils;
+    use crate::test_utils::setup;
+    use once_cell::sync::Lazy;
 
+
+    static SHARED_LWS: Lazy<Mutex<Option<Arc<LinnaeusWebsocket>>>> = Lazy::new(|| {
+        Default::default()
+    });
+
+    async fn get_shared_lws() -> Arc<LinnaeusWebsocket> {
+        let mut shared = SHARED_LWS.lock().expect("couldn't get the lock on shared lws");
+        if shared.is_none() {
+            let lws = LinnaeusWebsocket::new(url::Url::parse("wss://ws.kraken.com").expect("couldn't create url")).await;
+            *shared = Some(lws.clone());
+            return lws;
+        }
+        shared.as_ref().unwrap().clone()
+    }
 
     #[tokio::test]
     async fn test_ping() -> anyhow::Result<()> {
-        let lws = LinnaeusWebsocket::new(url::Url::parse("wss://ws.kraken.com").expect("couldn't create url")).await;
+        setup();
+        let lws = get_shared_lws().await;
         let r = lws.ping().await.expect("couldn't ping");
-        let value = r.await.expect("couldn't get response from ping");
+        let value = tokio::time::timeout(Duration::from_secs_f64(5.0), r).await
+            .expect("timeout while waiting for response")
+            .expect("couldn't get response from event receiver");
         match value {
             Event::Pong(p) => {
                 println!("got pong with id {}", p.request_id())
@@ -282,7 +294,8 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe() -> anyhow::Result<()> {
-        let lws = LinnaeusWebsocket::new(url::Url::parse("wss://ws.kraken.com").expect("couldn't create url")).await;
+        setup();
+        let lws = get_shared_lws().await;
         let mut r = lws.subscribe(messages::Channel::Ticker, "XBT/USD".into()).await.expect("couldn't subscribe");
         let Ok(value) = tokio::time::timeout(Duration::from_secs_f64(10.0), r.recv()).await else {
             panic!("timed out while waiting for response");
