@@ -98,7 +98,7 @@ impl LinnaeusWebsocket {
         }
 
 
-        linnaeus_websocket
+        Ok(linnaeus_websocket)
     }
 
     async fn reader(client: Arc<Self>, mut read: ReadStream, mut close_receiver: tokio::sync::oneshot::Receiver<()>) -> ReadStream {
@@ -276,7 +276,7 @@ mod websocket_tests {
     async fn get_shared_lws() -> Arc<LinnaeusWebsocket> {
         let mut shared = SHARED_LWS.lock().expect("couldn't get the lock on shared lws");
         if shared.is_none() {
-            let lws = LinnaeusWebsocket::new(url::Url::parse("wss://ws.kraken.com").expect("couldn't create url")).await;
+            let lws = LinnaeusWebsocket::new("wss://ws.kraken.com").await.expect("Couldn't create lws for testing");
             *shared = Some(lws.clone());
             return lws;
         }
