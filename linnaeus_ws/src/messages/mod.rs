@@ -226,7 +226,7 @@ pub enum ChannelMessage {
     Ticker(Ticker),
     OHLC(OHLC),
     Trade(Trades),
-    Spread(Spreads),
+    Spread(Spread),
     Book(Book),
     OwnTrades(OwnTrades),
     OpenOrders(OpenOrders),

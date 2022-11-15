@@ -9,5 +9,7 @@ pub enum LinnaeusWebsocketError {
     #[error("url parsing error error -> {0}")]
     UrlParse(#[from] url::ParseError),
     #[error("Invalid websocket url -> {reason}")]
-    Url{reason: &'static str}
+    Url{reason: &'static str},
+    #[error("Kraken is not online")]
+    KrakenOffline
 }

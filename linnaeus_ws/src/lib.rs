@@ -9,16 +9,19 @@ use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::broadcast;
 
-use crate::messages::{Channel, ChannelMessageWrapper};
+use crate::messages::{Channel, ChannelMessageWrapper, Event, EventType};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use tokio::net::TcpStream;
+use tokio::time::error::Elapsed;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Message as TungstenMessage};
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::tungstenite::{Error, Message};
 
 type ReadStream = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
@@ -53,8 +56,8 @@ impl LinnaeusWebsocket {
         let url = url::Url::parse(url)?;
 
         let (ws_stream, _) = connect_async(url.clone()).await?;
-        println!("WebSocket handshake has been successfully completed");
-        let (write, read) = ws_stream.split();
+        info!("WebSocket handshake has been successfully completed");
+        let (write, mut read) = ws_stream.split();
 
         let (close_sender, close_receiver) = tokio::sync::oneshot::channel();
 
@@ -67,6 +70,12 @@ impl LinnaeusWebsocket {
             reader: Default::default(),
             closer: close_sender,
         });
+
+        let online = linnaeus_websocket.wait_for_system_status(&mut read).await;
+
+        if !online {
+            return Err(error::LinnaeusWebsocketError::KrakenOffline);
+        }
 
         let reader_handle = tokio::spawn(Self::reader(
             linnaeus_websocket.clone(),
@@ -83,6 +92,40 @@ impl LinnaeusWebsocket {
         }
 
         Ok(linnaeus_websocket)
+    }
+
+    async fn wait_for_system_status(self: &Arc<Self>, read: &mut ReadStream) -> bool {
+        //TODO configurable timeout
+        let timer = tokio::time::timeout(Duration::from_secs_f64(10.0), async {
+            while let Some(msg) = read.next().await {
+                let Ok(msg) = msg else {
+                    return false;
+                };
+
+                let TungstenMessage::Text(msg) = msg else {
+                    return false;
+                };
+
+                let event: messages::Event = match serde_json::from_str(&msg) {
+                    Ok(event) => event,
+                    Err(_) => return false
+                };
+
+                match &event {
+                    Event::Heartbeat => continue,
+                    Event::SystemStatus(ss) => {
+                        info!("got system status {:?}", ss);
+                        let online = matches!(ss.status(), messages::general_messages::SystemStatusCode::Online);
+                        self.recent_events.insert(EventType::SystemStatus, event);
+                        return online
+                    }
+                    _ => return false
+                }
+            }
+            false
+        }).await;
+
+        timer.unwrap_or(false)
     }
 
     async fn reader(
@@ -283,22 +326,27 @@ mod websocket_tests {
     use log::info;
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_str_eq;
-    use std::sync::Mutex;
+    use tokio::sync::Mutex;
     use std::time::Duration;
+    use crate::messages::general_messages::{Depth, Interval};
 
     static SHARED_LWS: Lazy<Mutex<Option<Arc<LinnaeusWebsocket>>>> =
-        Lazy::new(|| Default::default());
+        Lazy::new(|| Mutex::new(None));
+
 
     async fn get_shared_lws() -> Arc<LinnaeusWebsocket> {
         let mut shared = SHARED_LWS
-            .lock()
-            .expect("couldn't get the lock on shared lws");
+            .lock().await;
+        info!("got lock");
         if shared.is_none() {
+            info!("is none");
             let lws = LinnaeusWebsocket::new("wss://ws.kraken.com")
                 .await
                 .expect("Couldn't create lws for testing");
             *shared = Some(lws.clone());
             return lws;
+        } else {
+            info!("is not none");
         }
         shared.as_ref().unwrap().clone()
     }
@@ -322,20 +370,117 @@ mod websocket_tests {
     }
 
     #[tokio::test]
-    async fn subscribe() -> anyhow::Result<()> {
+    async fn multi_subscribe_ticker() -> anyhow::Result<()> {
         setup();
         let lws = get_shared_lws().await;
-        let sub_req =
-            messages::general_messages::Subscribe::new(Channel::Ticker).with_pair("XBT/USD".into());
-        let mut r = lws.subscribe(sub_req).await.expect("couldn't subscribe");
-        let Ok(value) = tokio::time::timeout(Duration::from_secs_f64(10.0), r.get_mut(0).expect("got no receivers").recv()).await else {
-            panic!("timed out while waiting for response");
-        };
-        let Ok(value) = value else {
-            panic!("error while receiving message from broadcast");
-        };
 
-        println!("Got a message! {}", value);
+        let sub_req =
+            messages::general_messages::Subscribe::new(Channel::Ticker).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
+        assert_eq!(receivers.len(), 2);
+
+        let expected_pairs = vec!["XBT/USD", "XBT/EUR"];
+
+        for (receiver, expected_pair) in receivers.iter_mut().zip(expected_pairs) {
+            let Ok(value) = tokio::time::timeout(Duration::from_secs_f64(5.0), receiver.recv()).await else {
+                panic!("timed out while waiting for response");
+            };
+            let Ok(value) = value else {
+                panic!("error while receiving message from broadcast");
+            };
+
+            println!("Got a message! {}", value);
+            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+
+            assert!(matches!(value.channel(), Channel::Ticker));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn multi_subscribe_ohlc() -> anyhow::Result<()> {
+        setup();
+        let lws = get_shared_lws().await;
+
+        let sub_req =
+            messages::general_messages::Subscribe::new(Channel::OHLC(Interval::FiveMin)).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
+        assert_eq!(receivers.len(), 2);
+
+        let expected_pairs = vec!["XBT/USD", "XBT/EUR"];
+
+        for (receiver, expected_pair) in receivers.iter_mut().zip(expected_pairs) {
+            let Ok(value) = tokio::time::timeout(Duration::from_secs_f64(5.0), receiver.recv()).await else {
+                panic!("timed out while waiting for response");
+            };
+            let Ok(value) = value else {
+                panic!("error while receiving message from broadcast");
+            };
+
+            println!("Got a message! {}", value);
+            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+
+            assert!(matches!(value.channel(), Channel::OHLC(Interval::FiveMin)));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn multi_subscribe_book() -> anyhow::Result<()> {
+        setup();
+        let lws = get_shared_lws().await;
+
+        let sub_req =
+            messages::general_messages::Subscribe::new(Channel::Book(Depth::TwentyFive)).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
+        assert_eq!(receivers.len(), 2);
+
+        let expected_pairs = vec!["XBT/USD", "XBT/EUR"];
+
+        for (receiver, expected_pair) in receivers.iter_mut().zip(expected_pairs) {
+            let Ok(value) = tokio::time::timeout(Duration::from_secs_f64(15.0), receiver.recv()).await else {
+                panic!("timed out while waiting for response");
+            };
+            let Ok(value) = value else {
+                panic!("error while receiving message from broadcast");
+            };
+
+            println!("Got a message! {}", value);
+            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+
+            assert!(matches!(value.channel(), Channel::Book(Depth::TwentyFive)));
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn multi_subscribe_spread() -> anyhow::Result<()> {
+        setup();
+        let lws = get_shared_lws().await;
+
+        let sub_req =
+            messages::general_messages::Subscribe::new(Channel::Spread).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
+        assert_eq!(receivers.len(), 2);
+
+        let expected_pairs = vec!["XBT/USD", "XBT/EUR"];
+
+        for (receiver, expected_pair) in receivers.iter_mut().zip(expected_pairs) {
+            let Ok(value) = tokio::time::timeout(Duration::from_secs_f64(5.0), receiver.recv()).await else {
+                panic!("timed out while waiting for response");
+            };
+            let Ok(value) = value else {
+                panic!("error while receiving message from broadcast");
+            };
+
+            println!("Got a message! {}", value);
+            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+
+            assert!(matches!(value.channel(), Channel::Spread));
+        }
 
         Ok(())
     }
@@ -344,18 +489,11 @@ mod websocket_tests {
     async fn system_status_received() -> anyhow::Result<()> {
         setup();
         let lws = get_shared_lws().await;
-        let mut event = lws.get_recent_event(messages::EventType::SystemStatus);
-        let mut counter = 0;
-        while event.is_none() && counter < 10 {
-            tokio::time::sleep(Duration::from_secs_f64(0.1)).await;
-            event = lws.get_recent_event(messages::EventType::SystemStatus);
-            counter += 1;
-        }
-        assert!(event.is_some());
+        let event = lws.get_recent_event(messages::EventType::SystemStatus);
+        let Some(event) = event else {
+            panic!("couldn't get a system status event");
+        };
 
-        info!("got system status after {} iterations", counter);
-
-        let event = event.unwrap();
         let event = match event {
             Event::SystemStatus(ss) => ss,
             _ => panic!("didnt' get a system status event. Got {}", event),
