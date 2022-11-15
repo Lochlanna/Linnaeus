@@ -17,11 +17,9 @@ use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use log::{error, info, trace, warn};
 use tokio::net::TcpStream;
-use tokio::time::error::Elapsed;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Message as TungstenMessage};
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
-use tokio_tungstenite::tungstenite::{Error, Message};
 
 type ReadStream = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
 
@@ -37,12 +35,11 @@ fn websocket_error_is_fatal(error: &tokio_tungstenite::tungstenite::Error) -> bo
 pub struct LinnaeusWebsocket {
     subscriptions: DashMap<u64, broadcast::Sender<ChannelMessageWrapper>, ahash::RandomState>,
     request_id: AtomicU64,
-    pending_requests:
-        DashMap<u64, tokio::sync::oneshot::Sender<messages::Event>, ahash::RandomState>,
-    recent_events: DashMap<messages::EventType, messages::Event, ahash::RandomState>,
+    pending_requests: DashMap<u64, tokio::sync::oneshot::Sender<Event>, ahash::RandomState>,
+    recent_events: DashMap<EventType, Event, ahash::RandomState>,
     writer:
         tokio::sync::Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, TungstenMessage>>,
-    reader: std::sync::Mutex<Option<tokio::task::JoinHandle<ReadStream>>>,
+    reader: tokio::sync::Mutex<Option<tokio::task::JoinHandle<ReadStream>>>,
     closer: tokio::sync::oneshot::Sender<()>,
 }
 
@@ -84,10 +81,7 @@ impl LinnaeusWebsocket {
         ));
 
         {
-            let mut reader = linnaeus_websocket
-                .reader
-                .lock()
-                .expect("could get lock mutex");
+            let mut reader = linnaeus_websocket.reader.lock().await;
             *reader = Some(reader_handle);
         }
 
@@ -106,24 +100,28 @@ impl LinnaeusWebsocket {
                     return false;
                 };
 
-                let event: messages::Event = match serde_json::from_str(&msg) {
+                let event: Event = match serde_json::from_str(&msg) {
                     Ok(event) => event,
-                    Err(_) => return false
+                    Err(_) => return false,
                 };
 
                 match &event {
                     Event::Heartbeat => continue,
                     Event::SystemStatus(ss) => {
                         info!("got system status {:?}", ss);
-                        let online = matches!(ss.status(), messages::general_messages::SystemStatusCode::Online);
+                        let online = matches!(
+                            ss.status(),
+                            messages::general_messages::SystemStatusCode::Online
+                        );
                         self.recent_events.insert(EventType::SystemStatus, event);
-                        return online
+                        return online;
                     }
-                    _ => return false
+                    _ => return false,
                 }
             }
             false
-        }).await;
+        })
+        .await;
 
         timer.unwrap_or(false)
     }
@@ -204,10 +202,7 @@ impl LinnaeusWebsocket {
         }
     }
 
-    async fn send_event(
-        &self,
-        event: messages::Event,
-    ) -> Result<(), error::LinnaeusWebsocketError> {
+    async fn send_event(&self, event: Event) -> Result<(), error::LinnaeusWebsocketError> {
         let event_json = serde_json::to_string(&event)?;
         trace!("sending json over websocket {}", event_json);
         let message = TungstenMessage::Text(event_json);
@@ -217,17 +212,15 @@ impl LinnaeusWebsocket {
     }
 
     fn next_id(&self) -> u64 {
-        let id = self.request_id.fetch_add(1, Ordering::SeqCst);
-        id
+        self.request_id.fetch_add(1, Ordering::SeqCst)
     }
 
     pub async fn ping(
         &self,
-    ) -> Result<tokio::sync::oneshot::Receiver<messages::Event>, error::LinnaeusWebsocketError>
-    {
+    ) -> Result<tokio::sync::oneshot::Receiver<Event>, error::LinnaeusWebsocketError> {
         let id = self.next_id();
 
-        let ping = messages::Event::Ping(messages::general_messages::Ping::new(id as i64));
+        let ping = Event::Ping(messages::general_messages::Ping::new(id as i64));
 
         let (one_shot_sender, one_shot_receiver) = tokio::sync::oneshot::channel();
         self.pending_requests.insert(id, one_shot_sender);
@@ -237,7 +230,7 @@ impl LinnaeusWebsocket {
         Ok(one_shot_receiver)
     }
 
-    pub fn get_recent_event(&self, event_type: messages::EventType) -> Option<messages::Event> {
+    pub fn get_recent_event(&self, event_type: EventType) -> Option<Event> {
         self.recent_events.get(&event_type).map(|e| e.clone())
     }
 
@@ -258,8 +251,7 @@ impl LinnaeusWebsocket {
             },
         );
 
-        self.send_event(messages::Event::Subscribe(sub_event))
-            .await?;
+        self.send_event(Event::Subscribe(sub_event)).await?;
 
         let mut receivers = Vec::with_capacity(keys.len());
 
@@ -285,7 +277,7 @@ impl LinnaeusWebsocket {
             .expect("couldn't send shutdown command");
         let reader_join_handle;
         {
-            let mut reader = self.reader.lock().expect("couldn't get lock on reader jh");
+            let mut reader = self.reader.lock().await;
             let handle = std::mem::replace(&mut (*reader), None);
             let Some(handle) = handle else {
                 warn!("couldn't get the join handle during shutdown");
@@ -321,22 +313,19 @@ impl LinnaeusWebsocket {
 #[cfg(test)]
 mod websocket_tests {
     use super::*;
+    use crate::messages::general_messages::{Depth, Interval};
     use crate::messages::Event;
     use crate::test_utils::setup;
     use log::info;
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_str_eq;
-    use tokio::sync::Mutex;
     use std::time::Duration;
-    use crate::messages::general_messages::{Depth, Interval};
+    use tokio::sync::Mutex;
 
-    static SHARED_LWS: Lazy<Mutex<Option<Arc<LinnaeusWebsocket>>>> =
-        Lazy::new(|| Mutex::new(None));
-
+    static SHARED_LWS: Lazy<Mutex<Option<Arc<LinnaeusWebsocket>>>> = Lazy::new(|| Mutex::new(None));
 
     async fn get_shared_lws() -> Arc<LinnaeusWebsocket> {
-        let mut shared = SHARED_LWS
-            .lock().await;
+        let mut shared = SHARED_LWS.lock().await;
         info!("got lock");
         if shared.is_none() {
             info!("is none");
@@ -374,8 +363,9 @@ mod websocket_tests {
         setup();
         let lws = get_shared_lws().await;
 
-        let sub_req =
-            messages::general_messages::Subscribe::new(Channel::Ticker).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let sub_req = messages::general_messages::Subscribe::new(Channel::Ticker)
+            .with_pair("XBT/USD".into())
+            .with_pair("XBT/EUR".into());
         let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
         assert_eq!(receivers.len(), 2);
 
@@ -390,7 +380,10 @@ mod websocket_tests {
             };
 
             println!("Got a message! {}", value);
-            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+            assert_str_eq!(
+                value.pair().as_ref().expect("ticker doesn't have pair"),
+                expected_pair
+            );
 
             assert!(matches!(value.channel(), Channel::Ticker));
         }
@@ -403,8 +396,9 @@ mod websocket_tests {
         setup();
         let lws = get_shared_lws().await;
 
-        let sub_req =
-            messages::general_messages::Subscribe::new(Channel::OHLC(Interval::FiveMin)).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let sub_req = messages::general_messages::Subscribe::new(Channel::OHLC(Interval::FiveMin))
+            .with_pair("XBT/USD".into())
+            .with_pair("XBT/EUR".into());
         let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
         assert_eq!(receivers.len(), 2);
 
@@ -419,7 +413,10 @@ mod websocket_tests {
             };
 
             println!("Got a message! {}", value);
-            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+            assert_str_eq!(
+                value.pair().as_ref().expect("ticker doesn't have pair"),
+                expected_pair
+            );
 
             assert!(matches!(value.channel(), Channel::OHLC(Interval::FiveMin)));
         }
@@ -432,8 +429,9 @@ mod websocket_tests {
         setup();
         let lws = get_shared_lws().await;
 
-        let sub_req =
-            messages::general_messages::Subscribe::new(Channel::Book(Depth::TwentyFive)).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let sub_req = messages::general_messages::Subscribe::new(Channel::Book(Depth::Ten))
+            .with_pair("XBT/USD".into())
+            .with_pair("XBT/EUR".into());
         let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
         assert_eq!(receivers.len(), 2);
 
@@ -448,9 +446,12 @@ mod websocket_tests {
             };
 
             println!("Got a message! {}", value);
-            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+            assert_str_eq!(
+                value.pair().as_ref().expect("ticker doesn't have pair"),
+                expected_pair
+            );
 
-            assert!(matches!(value.channel(), Channel::Book(Depth::TwentyFive)));
+            assert!(matches!(value.channel(), Channel::Book(Depth::Ten)));
         }
 
         Ok(())
@@ -461,8 +462,9 @@ mod websocket_tests {
         setup();
         let lws = get_shared_lws().await;
 
-        let sub_req =
-            messages::general_messages::Subscribe::new(Channel::Spread).with_pair("XBT/USD".into()).with_pair("XBT/EUR".into());
+        let sub_req = messages::general_messages::Subscribe::new(Channel::Spread)
+            .with_pair("XBT/USD".into())
+            .with_pair("XBT/EUR".into());
         let mut receivers = lws.subscribe(sub_req).await.expect("couldn't subscribe");
         assert_eq!(receivers.len(), 2);
 
@@ -477,7 +479,10 @@ mod websocket_tests {
             };
 
             println!("Got a message! {}", value);
-            assert_str_eq!(value.pair().as_ref().expect("ticker doesn't have pair"), expected_pair);
+            assert_str_eq!(
+                value.pair().as_ref().expect("ticker doesn't have pair"),
+                expected_pair
+            );
 
             assert!(matches!(value.channel(), Channel::Spread));
         }
@@ -489,7 +494,7 @@ mod websocket_tests {
     async fn system_status_received() -> anyhow::Result<()> {
         setup();
         let lws = get_shared_lws().await;
-        let event = lws.get_recent_event(messages::EventType::SystemStatus);
+        let event = lws.get_recent_event(EventType::SystemStatus);
         let Some(event) = event else {
             panic!("couldn't get a system status event");
         };
